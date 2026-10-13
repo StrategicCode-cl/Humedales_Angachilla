@@ -1,0 +1,24 @@
+services:
+  web:
+    build:
+      context: ./frontend/web
+      args:
+        # URL que usa el navegador para llegar a la API
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    container_name: humedales-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    container_name: humedales-backend
+    environment:
+      PORT: 4000
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
