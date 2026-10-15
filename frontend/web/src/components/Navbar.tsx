@@ -27,7 +27,6 @@ import { soundService } from '../services/soundService';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface NavbarProps {
-  currentTab: string;
   setCurrentTab: (tab: string) => void;
   currentUser: User | null;
   onOpenAuth: () => void;
@@ -40,7 +39,6 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentTab,
   setCurrentTab,
   currentUser,
   onOpenAuth,
@@ -78,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white text-stone-900 border-b border-stone-200/90 shadow-xs select-none">
+    <header className="lg:hidden sticky top-0 z-40 bg-white text-stone-900 border-b border-stone-200/90 shadow-xs select-none">
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Brand Logo & Title */}
@@ -103,82 +101,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </p>
             </div>
           </div>
-
-          {/* Desktop Navigation Links (Clean Surface Pills) */}
-          <nav className="hidden lg:flex items-center space-x-1">
-            <button
-              onClick={() => setCurrentTab('avisos')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'avisos'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Comunidad & Avisos
-            </button>
-            <button
-              onClick={() => setCurrentTab('mapa')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'mapa'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Mapa & Senderos
-            </button>
-            <button
-              onClick={() => setCurrentTab('eventos')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'eventos'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Eventos
-            </button>
-            <button
-              onClick={() => setCurrentTab('galeria')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'galeria'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Galería
-            </button>
-            <button
-              onClick={() => setCurrentTab('catalogo')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'catalogo'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Biodiversidad
-            </button>
-            <button
-              onClick={() => setCurrentTab('sugerencias')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'sugerencias'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Buzón
-            </button>
-            {currentUser?.role === 'admin' && (
-              <button
-                onClick={() => setCurrentTab('admin')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                  currentTab === 'admin'
-                    ? 'bg-emerald-800 text-white'
-                    : 'text-emerald-800 hover:bg-emerald-50'
-                }`}
-              >
-                Panel Guardaparques
-              </button>
-            )}
-          </nav>
 
           {/* Unified, uncluttered Action Bar */}
           <div className="flex items-center space-x-1.5 sm:space-x-2">

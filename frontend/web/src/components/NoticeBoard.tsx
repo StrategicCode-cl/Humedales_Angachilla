@@ -24,6 +24,7 @@ import { storageService } from '../services/storageService';
 import { RotatingNewsBanner } from './RotatingNewsBanner';
 import { SanctuaryHistorySection } from './SanctuaryHistorySection';
 import { SponsorBanner } from './SponsorBanner';
+import { HomeSidebar } from './HomeSidebar';
 
 interface NoticeBoardProps {
   currentUser: UserType | null;
@@ -203,8 +204,8 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
     <div className="w-full min-h-screen bg-stone-50 pb-20">
       {/* Top Segmented Sub-navigation (Tactile Surface) */}
       <div className="bg-white border-b border-stone-200/90 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-xl mx-auto px-3 py-2">
-          <div className="flex items-center justify-between gap-1 bg-stone-100 p-1 rounded-2xl border border-stone-200/80">
+        <div className="max-w-xl lg:max-w-[58rem] mx-auto px-3 lg:px-4 py-2 lg:py-3">
+          <div className="lg:max-w-xl flex items-center justify-between gap-1 bg-stone-100 p-1 rounded-2xl border border-stone-200/80">
             <button
               onClick={() => setSubSection('feed')}
               className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all text-center ${
@@ -241,7 +242,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
         {/* Category Filter Pills (Only visible when viewing Feed) */}
         {subSection === 'feed' && (
           <div className="px-3 py-2 overflow-x-auto scrollbar-none border-t border-stone-100">
-            <div className="flex items-center space-x-2 min-w-max max-w-xl mx-auto">
+            <div className="flex items-center space-x-2 min-w-max max-w-xl lg:max-w-[58rem] lg:px-1 mx-auto">
               {categories.map(cat => (
                 <button
                   key={cat.id}
@@ -260,8 +261,10 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
         )}
       </div>
 
+      {/* Desktop: feed + columna lateral */}
+      <div className="lg:max-w-[58rem] lg:mx-auto lg:px-4 lg:py-6 lg:grid lg:grid-cols-[minmax(0,36rem)_20rem] lg:justify-between lg:gap-8">
       {/* Main Feed Container */}
-      <div className="max-w-xl mx-auto px-2 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-6">
+      <div className="max-w-xl mx-auto lg:mx-0 lg:max-w-none px-2 sm:px-4 lg:px-0 py-3 sm:py-5 lg:py-0 space-y-4 sm:space-y-6">
         {/* VIEW: HISTORIA Y COMITÉ */}
         {subSection === 'historia' && (
           <div className="animate-in fade-in duration-200">
@@ -598,6 +601,8 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
     </>
   )}
 </div>
+      <HomeSidebar />
+      </div>
 
       {/* --- EXPANDED NOTICE MODAL / LIGHTBOX --- */}
       {expandedNotice && (

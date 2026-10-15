@@ -66,14 +66,14 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
   return (
     <div className="w-full min-h-screen bg-stone-50 text-stone-900 pb-24">
       {/* Header */}
-      <div className="bg-white border-b border-stone-200 px-4 pt-5 pb-4 sticky top-0 z-20 backdrop-blur-md bg-white/95">
-        <div className="max-w-2xl mx-auto">
+      <div className="bg-white border-b border-stone-200 px-4 lg:px-8 pt-5 lg:pt-7 pb-4 sticky top-0 z-20 backdrop-blur-md bg-white/95">
+        <div className="max-w-2xl lg:max-w-6xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
                 Agenda Santuario
               </span>
-              <h1 className="text-xl font-black text-stone-900 font-display">
+              <h1 className="text-xl lg:text-2xl font-black text-stone-900 font-display">
                 Eventos del Humedal
               </h1>
             </div>
@@ -102,7 +102,7 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
       </div>
 
       {/* Events List */}
-      <div className="max-w-2xl mx-auto px-4 pt-4 space-y-4">
+      <div className="max-w-2xl lg:max-w-6xl mx-auto px-4 lg:px-8 pt-4 lg:pt-6 space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-5 lg:items-stretch">
         {filteredEvents.map(evt => {
           const isFull = evt.registeredCount >= evt.capacity;
           const spotsLeft = Math.max(0, evt.capacity - evt.registeredCount);
@@ -111,7 +111,7 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
             <article
               key={evt.id}
               id={`event-card-${evt.id}`}
-              className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col"
             >
               {/* Event Image */}
               <div className="relative h-44 sm:h-52 w-full overflow-hidden bg-stone-100">
@@ -143,7 +143,7 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
               </div>
 
               {/* Event Content */}
-              <div className="p-4 sm:p-5">
+              <div className="p-4 sm:p-5 flex-1 flex flex-col">
                 <h3 className="text-base sm:text-lg font-bold text-stone-900 leading-snug">
                   {evt.title}
                 </h3>
@@ -168,7 +168,8 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                 </div>
 
                 {/* Capacity and Action buttons */}
-                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
+                <div className="flex-1 min-h-4" />
+                <div className="pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-xs text-stone-500">
                     <Users className="w-4 h-4 text-stone-400" />
                     <span>

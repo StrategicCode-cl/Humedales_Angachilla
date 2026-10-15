@@ -149,7 +149,12 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
 
     mapInstanceRef.current = map;
 
+    // El contenedor cambia de alto al cruzar el breakpoint de escritorio
+    const resizeObserver = new ResizeObserver(() => map.invalidateSize());
+    resizeObserver.observe(mapContainerRef.current);
+
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
     };
@@ -532,7 +537,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
   );
 
   return (
-    <div className="relative w-full flex flex-col bg-stone-50 min-h-screen text-stone-900 pb-20">
+    <div className="relative w-full flex flex-col bg-stone-50 min-h-screen text-stone-900 pb-20 lg:pb-0">
       {/* --- TOP HUD BAR (During Waze navigation) --- */}
       {isNavigating && (
         <div className="sticky top-0 z-30 bg-stone-900 text-white px-4 py-3 shadow-lg flex items-center justify-between border-b border-stone-800">
@@ -575,8 +580,14 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
         </div>
       )}
 
+      {/* Desktop: mapa fijo a la izquierda + panel lateral */}
+      <div className="lg:flex lg:items-start">
       {/* --- MAP CONTAINER --- */}
-      <div className="relative w-full h-[52vh] sm:h-[58vh] bg-stone-200 overflow-hidden shadow-inner">
+      <div
+        className={`relative w-full h-[52vh] sm:h-[58vh] lg:flex-1 lg:sticky bg-stone-200 overflow-hidden shadow-inner ${
+          isNavigating ? 'lg:top-16 lg:h-[calc(100vh-4rem)]' : 'lg:top-0 lg:h-screen'
+        }`}
+      >
         <div ref={mapContainerRef} className="w-full h-full z-10" />
 
         {/* Minimal Weather & Tidal Pill (Top Left) */}
@@ -621,7 +632,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
       </div>
 
       {/* --- SECTIONS BELOW THE MAP --- */}
-      <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-5">
+      <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-5 lg:max-w-none lg:mx-0 lg:w-[26rem] xl:w-[30rem] lg:shrink-0 lg:px-5 lg:py-6 lg:border-l lg:border-stone-200 lg:min-h-screen">
         {/* 1. TOGGLE: "Ruta a Utilizar" vs "Rutas Posibles" */}
         <div className="bg-white rounded-2xl border border-stone-200 p-3 shadow-xs">
           <div className="flex items-center justify-between gap-2 border-b border-stone-100 pb-2.5 mb-2.5">
@@ -653,7 +664,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
           </div>
 
           {/* Quick Route Selector Pills */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
             {HUMEDAL_ROUTES.map(route => {
               const isSelected = route.id === selectedRoute.id;
               return (
@@ -689,7 +700,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
           </div>
 
           {/* Active Route Action Bar */}
-          <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between">
+          <div className="mt-3 pt-2.5 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
             <div className="text-xs text-stone-600">
               <strong className="text-stone-900">{selectedRoute.name}</strong> • Superficie: {selectedRoute.surfaceType}
             </div>
@@ -729,7 +740,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
           </div>
 
           {routeEvents.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
               {routeEvents.map(evt => {
                 const spotsLeft = Math.max(0, evt.capacity - evt.registeredCount);
                 const isFull = evt.registeredCount >= evt.capacity;
@@ -827,6 +838,8 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
             </button>
           </div>
         )}
+      </div>
+
       </div>
 
       {/* --- REPORT ALERT MODAL --- */}
