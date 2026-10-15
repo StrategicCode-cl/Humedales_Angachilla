@@ -19,7 +19,7 @@ import {
   X
 } from 'lucide-react';
 import { User, Notice } from '../types';
-import { storageService } from '../services/storageService';
+import { authApi } from '../lib/api';
 import { pathForTab, tabForPath } from '../lib/tabs';
 import { Navbar } from './Navbar';
 import { QRScannerModal } from './QRScannerModal';
@@ -80,10 +80,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [targetMapCoordinates, setTargetMapCoordinates] = useState<[number, number] | null>(null);
   const [targetMapRouteId, setTargetMapRouteId] = useState<string | null>(null);
 
-  // Load persistent user on mount (localStorage solo existe en el cliente)
+  // Recupera la sesión activa (cookie) al montar
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentUser(storageService.getCurrentUser());
+    authApi.me()
+      .then(setCurrentUser)
+      .catch(() => setCurrentUser(null));
   }, []);
 
   const setCurrentTab = (tab: string) => router.push(pathForTab(tab));
@@ -101,9 +102,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setCurrentTab('mapa');
   };
 
-  const handleLogout = () => {
-    storageService.setCurrentUser(null);
+  const handleLogout = async () => {
+    await authApi.logout().catch(() => {});
     setCurrentUser(null);
+    if (currentTab === 'admin') setCurrentTab('avisos');
   };
 
   const contextValue: AppContextValue = {

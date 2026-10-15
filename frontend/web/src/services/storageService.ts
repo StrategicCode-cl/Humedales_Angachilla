@@ -1,5 +1,4 @@
 import {
-  User,
   Suggestion,
   CommunityPhoto,
   Notice,
@@ -24,8 +23,6 @@ import {
 } from '../data/mockData';
 
 const STORAGE_KEYS = {
-  CURRENT_USER: 'angachilla_current_user',
-  USERS: 'angachilla_users',
   NOTICES: 'angachilla_notices',
   SUGGESTIONS: 'angachilla_suggestions',
   COMMUNITY_PHOTOS: 'angachilla_photos',
@@ -41,116 +38,7 @@ const STORAGE_KEYS = {
   MODERATION_TICKETS: 'angachilla_moderation_tickets'
 };
 
-export const DEFAULT_ADMIN: User = {
-  id: 'usr-admin',
-  name: 'Guardaparques Humedal Angachilla',
-  email: 'admin@angachilla.cl',
-  role: 'admin',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-  createdAt: '2026-01-01'
-};
-
-export const DEFAULT_VISITOR: User = {
-  id: 'usr-visitor',
-  name: 'Vicente Santos (Visitante)',
-  email: 'visitante@angachilla.cl',
-  role: 'user',
-  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-  createdAt: '2026-09-01'
-};
-
 class StorageService {
-  // --- User Session ---
-  getCurrentUser(): User {
-    if (typeof window === 'undefined') return DEFAULT_VISITOR;
-    const stored = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (!stored) {
-      this.setCurrentUser(DEFAULT_VISITOR);
-      return DEFAULT_VISITOR;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return DEFAULT_VISITOR;
-    }
-  }
-
-  setCurrentUser(user: User | null) {
-    if (typeof window === 'undefined') return;
-    if (user) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-    }
-  }
-
-  // --- Users Directory ---
-  getAllUsers(): User[] {
-    if (typeof window === 'undefined') return [DEFAULT_ADMIN, DEFAULT_VISITOR];
-    const stored = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (!stored) {
-      const initial = [DEFAULT_ADMIN, DEFAULT_VISITOR];
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(initial));
-      return initial;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [DEFAULT_ADMIN, DEFAULT_VISITOR];
-    }
-  }
-
-  registerUser(name: string, email: string, role: 'user' | 'admin' = 'user'): User {
-    const users = this.getAllUsers();
-    const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (existing) {
-      this.setCurrentUser(existing);
-      return existing;
-    }
-    const newUser: User = {
-      id: 'usr-' + Date.now(),
-      name,
-      email,
-      role,
-      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    users.push(newUser);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-    }
-    this.setCurrentUser(newUser);
-    return newUser;
-  }
-
-  login(email: string, _password?: string): User | null {
-    const users = this.getAllUsers();
-    const match = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (match) {
-      this.setCurrentUser(match);
-      return match;
-    }
-    // Demo fallback for any admin/guardaparque email
-    if (email.toLowerCase().includes('admin') || email.toLowerCase().includes('guarda')) {
-      this.setCurrentUser(DEFAULT_ADMIN);
-      return DEFAULT_ADMIN;
-    }
-    // Demo fallback for test visitor
-    if (email.toLowerCase().includes('visita') || email.toLowerCase().includes('camilo')) {
-      this.setCurrentUser(DEFAULT_VISITOR);
-      return DEFAULT_VISITOR;
-    }
-    return null;
-  }
-
-  register(params: { name: string; email: string; password?: string; role?: 'user' | 'admin' }): User {
-    return this.registerUser(params.name, params.email, params.role || 'user');
-  }
-
-  logout() {
-    this.setCurrentUser(null);
-  }
-
   // --- Notices ---
   getNotices(): Notice[] {
     if (typeof window === 'undefined') return INITIAL_NOTICES;

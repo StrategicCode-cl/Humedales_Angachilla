@@ -3,6 +3,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
+COPY migrations ./migrations
 COPY src ./src
 USER node
 EXPOSE 4000
