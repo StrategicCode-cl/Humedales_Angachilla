@@ -1,20 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  MessageSquarePlus,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Sparkles,
-  Send,
-  User,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
-  Filter
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Suggestion, User as UserType } from '../types';
 import { storageService } from '../services/storageService';
 
@@ -24,329 +11,287 @@ interface SuggestionsPanelProps {
   onSuggestionSubmitted?: () => void;
 }
 
+const CATEGORY: Record<Suggestion['category'], string> = {
+  infraestructura: 'Infraestructura y pasarelas',
+  fauna: 'Protección de fauna',
+  limpieza: 'Aseo y residuos',
+  seguridad: 'Seguridad y convivencia',
+  educacion: 'Educación y señalética'
+};
+
+const STATUS: Record<Suggestion['status'], { label: string; className: string }> = {
+  pendiente: { label: 'En revisión', className: 'bg-amber-50 text-amber-900' },
+  aprobada: { label: 'Aprobada', className: 'bg-emerald-50 text-emerald-900' },
+  rechazada: { label: 'No aprobada', className: 'bg-stone-100 text-stone-700' }
+};
+
+const TITLE_MAX = 120;
+const DESCRIPTION_MIN = 30;
+const DESCRIPTION_MAX = 1000;
+
+const input =
+  'w-full h-11 px-3 rounded-md bg-white border border-stone-300 text-base text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent';
+
 export const SuggestionsPanel: React.FC<SuggestionsPanelProps> = ({
   currentUser,
   onOpenAuth,
   onSuggestionSubmitted
 }) => {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>(storageService.getSuggestions());
+  const [suggestions, setSuggestions] = useState<Suggestion[]>(() => storageService.getSuggestions());
   const [activeTab, setActiveTab] = useState<'publicas' | 'mis_sugerencias'>('publicas');
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [submittedAlert, setSubmittedAlert] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<Suggestion['category'] | 'todas'>('todas');
+  const [formOpen, setFormOpen] = useState(false); // phones only; the form is always shown on desktop
+  const [sent, setSent] = useState<string | null>(null);
 
-  // Form State
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<Suggestion['category']>('infraestructura');
 
-  // Categories
-  const categoryLabels: Record<Suggestion['category'], { label: string; color: string }> = {
-    infraestructura: { label: 'Infraestructura & Pasarelas', color: 'bg-blue-100 text-blue-800 border-blue-300' },
-    fauna: { label: 'Protección de Fauna', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
-    limpieza: { label: 'Aseo & Residuos', color: 'bg-teal-100 text-teal-800 border-teal-300' },
-    seguridad: { label: 'Seguridad & Convivencia', color: 'bg-amber-100 text-amber-800 border-amber-300' },
-    educacion: { label: 'Educación & Señalética', color: 'bg-purple-100 text-purple-800 border-purple-300' }
-  };
+  const approved = suggestions.filter(s => s.status === 'aprobada');
+  const inReview = suggestions.filter(s => s.status === 'pendiente');
+  const mine = currentUser ? suggestions.filter(s => s.authorEmail.toLowerCase() === currentUser.email.toLowerCase()) : [];
+  const base = activeTab === 'publicas' ? approved : mine;
+  const shown = base.filter(s => categoryFilter === 'todas' || s.category === categoryFilter);
+  const categoriesInView = (Object.keys(CATEGORY) as Suggestion['category'][])
+    .map(id => ({ id, count: base.filter(s => s.category === id).length }))
+    .filter(c => c.count > 0);
 
-  const handleOpenSubmit = () => {
-    if (!currentUser) {
-      onOpenAuth();
-    } else {
-      setShowSubmitModal(true);
-    }
-  };
+  const descriptionTooShort = description.trim().length < DESCRIPTION_MIN;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description || !currentUser) return;
-
+    if (!currentUser || !title.trim() || descriptionTooShort) return;
     storageService.addSuggestion({
-      title,
-      description,
+      title: title.trim(),
+      description: description.trim(),
       category,
       authorName: currentUser.name,
       authorEmail: currentUser.email
     });
-
     setSuggestions(storageService.getSuggestions());
-    setShowSubmitModal(false);
+    setSent(title.trim());
     setTitle('');
     setDescription('');
-    setSubmittedAlert(true);
-    setTimeout(() => setSubmittedAlert(false), 6000);
+    setActiveTab('mis_sugerencias');
+    setCategoryFilter('todas');
     onSuggestionSubmitted?.();
   };
 
-  const approvedSuggestions = suggestions.filter(s => s.status === 'aprobada');
-  const mySuggestions = currentUser
-    ? suggestions.filter(s => s.authorEmail.toLowerCase() === currentUser.email.toLowerCase())
-    : [];
-
-  const displayedSuggestions = activeTab === 'publicas' ? approvedSuggestions : mySuggestions;
+  const form = !currentUser ? (
+    <div>
+      <h2 className="text-base font-semibold text-stone-950">Envía una propuesta</h2>
+      <p className="mt-1 text-sm text-stone-700">
+        Necesitas una cuenta para enviar sugerencias, así el comité puede responderte.
+      </p>
+      <button
+        type="button"
+        onClick={onOpenAuth}
+        className="mt-3 w-full h-11 rounded-md bg-stone-950 hover:bg-stone-800 text-white text-base font-semibold"
+      >
+        Iniciar sesión
+      </button>
+    </div>
+  ) : sent ? (
+    <div role="status">
+      <h2 className="text-base font-semibold text-stone-950">Recibimos tu propuesta</h2>
+      <p className="mt-1 text-sm text-stone-700">
+        “{sent}” quedó en revisión. Cuando el comité responda, verás su respuesta en Mis propuestas.
+      </p>
+      <button
+        type="button"
+        onClick={() => setSent(null)}
+        className="mt-3 h-10 px-4 rounded-md bg-stone-200 hover:bg-stone-300 text-sm font-semibold text-stone-900"
+      >
+        Enviar otra
+      </button>
+    </div>
+  ) : (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold text-stone-950">Envía una propuesta</h2>
+        <p className="mt-0.5 text-sm text-stone-600">Se publica cuando el comité la aprueba.</p>
+      </div>
+      <label className="block">
+        <span className="block text-sm font-semibold text-stone-800 mb-1">Tema</span>
+        <select value={category} onChange={e => setCategory(e.target.value as Suggestion['category'])} className={input}>
+          {(Object.keys(CATEGORY) as Suggestion['category'][]).map(id => (
+            <option key={id} value={id}>
+              {CATEGORY[id]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block">
+        <span className="block text-sm font-semibold text-stone-800 mb-1">Título</span>
+        <input
+          type="text"
+          required
+          maxLength={TITLE_MAX}
+          placeholder="Bancas con sombra cerca del mirador"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className={input}
+        />
+      </label>
+      <label className="block">
+        <span className="block text-sm font-semibold text-stone-800 mb-1">Qué propones y por qué</span>
+        <textarea
+          required
+          rows={5}
+          minLength={DESCRIPTION_MIN}
+          maxLength={DESCRIPTION_MAX}
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          aria-describedby="sug-desc-hint"
+          className="w-full px-3 py-2 rounded-md bg-white border border-stone-300 text-base text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
+          placeholder="Dónde, qué problema resuelve y a quién beneficia."
+        />
+        <span id="sug-desc-hint" className="mt-1 flex justify-between text-sm text-stone-600 tabular-nums">
+          <span>{descriptionTooShort ? `Mínimo ${DESCRIPTION_MIN} caracteres` : 'Listo para enviar'}</span>
+          <span>
+            {description.length} / {DESCRIPTION_MAX}
+          </span>
+        </span>
+      </label>
+      <p className="text-sm text-stone-600">
+        Se envía como <span className="font-semibold text-stone-900">{currentUser.name}</span>.
+      </p>
+      <button
+        type="submit"
+        disabled={!title.trim() || descriptionTooShort}
+        className="w-full h-11 rounded-md bg-stone-950 hover:bg-stone-800 disabled:bg-stone-300 disabled:text-stone-600 text-white text-base font-semibold transition-colors"
+      >
+        Enviar a revisión
+      </button>
+    </form>
+  );
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-stone-200 pb-5">
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-6 sm:pt-9 pb-24">
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300 uppercase tracking-wider">
-              Participación Ciudadana
-            </span>
-            <span className="text-xs text-stone-500 font-medium">Humedal Angachilla</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-stone-900 mt-1 font-display">
-            Buzón de Sugerencias y Mejoras
-          </h1>
-          <p className="text-sm text-stone-600 max-w-2xl mt-1 leading-relaxed">
-            Propón ideas para cuidar los senderos, pasarelas, avifauna y limpieza del santuario. Cada sugerencia es revisada por los administradores y guardaparques antes de ser publicada oficialmente.
+          <h1 className="text-2xl font-semibold tracking-tight text-stone-950">Buzón ciudadano</h1>
+          <p className="mt-0.5 text-sm text-stone-600 max-w-2xl">
+            Propón mejoras para senderos, pasarelas, fauna y limpieza del humedal. El comité revisa cada propuesta y responde
+            públicamente.
           </p>
         </div>
+        <p className="text-sm text-stone-600 tabular-nums shrink-0">
+          {approved.length} aprobadas · {inReview.length} en revisión
+        </p>
+      </header>
 
-        <button
-          onClick={handleOpenSubmit}
-          className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-950/20 transition-transform active:scale-95"
+      {/* Phone: the form opens in place under the title */}
+      <button
+        type="button"
+        onClick={() => (currentUser ? setFormOpen(v => !v) : onOpenAuth())}
+        aria-expanded={currentUser ? formOpen : undefined}
+        aria-controls="buzon-form"
+        className="lg:hidden mt-4 w-full h-11 rounded-md bg-stone-950 text-white text-base font-semibold flex items-center justify-center gap-2"
+      >
+        {currentUser ? 'Enviar una sugerencia' : 'Inicia sesión para enviar una sugerencia'}
+        {currentUser && <ChevronDown className={`w-4 h-4 transition-transform ${formOpen ? 'rotate-180' : ''}`} />}
+      </button>
+
+      <div className="mt-4 lg:mt-6 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-4 lg:gap-8 items-start">
+        <aside
+          id="buzon-form"
+          className={`${formOpen ? 'block' : 'hidden'} lg:block lg:order-2 lg:sticky lg:top-6 bg-white border border-stone-200 rounded-lg p-4`}
         >
-          <MessageSquarePlus className="w-4 h-4" />
-          <span>Enviar Sugerencia</span>
-        </button>
-      </div>
+          {form}
+        </aside>
 
-      {/* Confirmation banner after sending */}
-      {submittedAlert && (
-        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-start space-x-3 text-emerald-900 animate-scale-up">
-          <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-extrabold text-sm text-emerald-950">
-              ¡Tu sugerencia fue enviada exitosamente a moderación!
-            </h4>
-            <p className="text-xs text-emerald-800 mt-0.5">
-              Los administradores del humedal revisarán tu propuesta y, una vez aprobada, se publicará en el muro ciudadano oficial. Puedes revisar su estado en la pestaña “Mis Sugerencias”.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs Switcher */}
-      <div className="flex items-center space-x-2 border-b border-stone-200 pb-2">
-        <button
-          onClick={() => setActiveTab('publicas')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
-            activeTab === 'publicas'
-              ? 'bg-stone-900 text-white shadow-sm'
-              : 'text-stone-600 hover:bg-stone-100'
-          }`}
-        >
-          <span>Sugerencias Aprobadas</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-stone-700 text-white font-mono">
-            {approvedSuggestions.length}
-          </span>
-        </button>
-
-        {currentUser && (
-          <button
-            onClick={() => setActiveTab('mis_sugerencias')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
-              activeTab === 'mis_sugerencias'
-                ? 'bg-stone-900 text-white shadow-sm'
-                : 'text-stone-600 hover:bg-stone-100'
-            }`}
-          >
-            <span>Mis Propuestas Enviadas</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-700 text-white font-mono">
-              {mySuggestions.length}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* Suggestions List */}
-      <div className="space-y-4">
-        {displayedSuggestions.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-2xl border border-stone-200 shadow-sm">
-            <HelpCircle className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-            <h3 className="font-bold text-sm text-stone-800 font-display">
-              {activeTab === 'publicas'
-                ? 'No hay sugerencias aprobadas aún'
-                : 'Aún no has enviado ninguna sugerencia'}
-            </h3>
-            <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-              {activeTab === 'publicas'
-                ? '¡Sé el primero en aportar con una idea para el Humedal Angachilla!'
-                : 'Usa el botón "Enviar Sugerencia" para proponer mejoras en señalética, pasarelas o protección animal.'}
-            </p>
-          </div>
-        ) : (
-          displayedSuggestions.map(sug => {
-            const catInfo = categoryLabels[sug.category] || {
-              label: sug.category,
-              color: 'bg-stone-100 text-stone-800'
-            };
-
-            return (
-              <div
-                key={sug.id}
-                className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm space-y-3 hover:border-emerald-300 transition-colors"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase tracking-wider ${catInfo.color}`}
-                    >
-                      {catInfo.label}
-                    </span>
-
-                    {/* Status Badge */}
-                    {sug.status === 'aprobada' && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Aprobada</span>
-                      </span>
-                    )}
-                    {sug.status === 'pendiente' && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-600 animate-spin" />
-                        <span>En moderación admin</span>
-                      </span>
-                    )}
-                    {sug.status === 'rechazada' && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
-                        <XCircle className="w-3 h-3 text-rose-600" />
-                        <span>No aprobada</span>
-                      </span>
-                    )}
-                  </div>
-
-                  <span className="text-xs text-stone-400">{sug.createdAt}</span>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-extrabold text-stone-900 font-display">
-                    {sug.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-stone-600 mt-1.5 leading-relaxed">
-                    {sug.description}
-                  </p>
-                </div>
-
-                {/* Author attribution */}
-                <div className="flex items-center space-x-2 text-xs text-stone-500 pt-1">
-                  <User className="w-3.5 h-3.5 text-stone-400" />
-                  <span>Propuesto por <strong className="text-stone-700">{sug.authorName}</strong></span>
-                </div>
-
-                {/* Admin Feedback Box */}
-                {sug.adminComment && (
-                  <div className="p-3.5 rounded-xl bg-emerald-50/90 border border-emerald-200 text-emerald-950 text-xs">
-                    <div className="flex items-center space-x-1.5 font-bold text-emerald-800 mb-1">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>Respuesta de los Guardaparques / Administración:</span>
-                    </div>
-                    <p className="text-xs text-emerald-900 leading-relaxed italic">
-                      “{sug.adminComment}”
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* --- SUBMIT SUGGESTION MODAL --- */}
-      {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-stone-900">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <div className="flex items-center space-x-2">
-                <MessageSquarePlus className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-lg font-bold font-display text-stone-900">
-                  Enviar Sugerencia para el Humedal
-                </h3>
-              </div>
+        <section className="lg:order-1 min-w-0" aria-label="Sugerencias">
+          <div className="flex flex-wrap items-center gap-3 justify-between">
+            {!currentUser ? (
+              <h2 className="text-base font-semibold text-stone-950">Sugerencias aprobadas</h2>
+            ) : (
+            <div className="flex gap-1 p-1 rounded-md bg-stone-200/70" role="group" aria-label="Qué sugerencias ver">
               <button
-                onClick={() => setShowSubmitModal(false)}
-                className="text-stone-400 hover:text-stone-600"
+                type="button"
+                onClick={() => {
+                  setActiveTab('publicas');
+                  setCategoryFilter('todas');
+                }}
+                aria-pressed={activeTab === 'publicas'}
+                className={`h-8 px-3 rounded text-sm whitespace-nowrap ${
+                  activeTab === 'publicas' ? 'bg-white text-stone-950 font-semibold' : 'text-stone-700 hover:text-stone-950'
+                }`}
               >
-                ✕
+                Aprobadas <span className="tabular-nums text-stone-500">{approved.length}</span>
               </button>
-            </div>
-
-            <p className="text-xs text-stone-500 leading-relaxed">
-              Tu propuesta será enviada al equipo de guardaparques y administradores para su evaluación. Solo las sugerencias aprobadas serán públicas en el muro.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Categoría
-                </label>
-                <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value as unknown as Suggestion['category'])}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
-                >
-                  <option value="infraestructura">Infraestructura & Pasarelas</option>
-                  <option value="fauna">Protección de Fauna & Nidos</option>
-                  <option value="limpieza">Aseo & Basureros</option>
-                  <option value="seguridad">Seguridad & Ruidos</option>
-                  <option value="educacion">Educación & Señalética</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Título breve de la propuesta
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: Instalar bancas con sombra cerca del Mirador 2"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Descripción fundamentada
-                </label>
-                <textarea
-                  rows={4}
-                  required
-                  placeholder="Explica detalladamente por qué consideras que esta mejora beneficiará al humedal y a los visitantes..."
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-[11px] text-stone-600">
-                <span>Remitente registrado: </span>
-                <strong className="text-stone-800">{currentUser?.name}</strong> ({currentUser?.email})
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
+              {currentUser && (
                 <button
                   type="button"
-                  onClick={() => setShowSubmitModal(false)}
-                  className="px-4 py-2 rounded-xl bg-stone-100 text-stone-700 hover:bg-stone-200 text-xs font-medium"
+                  onClick={() => {
+                    setActiveTab('mis_sugerencias');
+                    setCategoryFilter('todas');
+                  }}
+                  aria-pressed={activeTab === 'mis_sugerencias'}
+                  className={`h-8 px-3 rounded text-sm whitespace-nowrap ${
+                    activeTab === 'mis_sugerencias' ? 'bg-white text-stone-950 font-semibold' : 'text-stone-700 hover:text-stone-950'
+                  }`}
                 >
-                  Cancelar
+                  Mis propuestas <span className="tabular-nums text-stone-500">{mine.length}</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow flex items-center space-x-1.5"
+              )}
+            </div>
+            )}
+
+            {categoriesInView.length > 1 && (
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <span className="sr-only sm:not-sr-only">Tema</span>
+                <select
+                  value={categoryFilter}
+                  onChange={e => setCategoryFilter(e.target.value as Suggestion['category'] | 'todas')}
+                  className="h-9 px-2 rounded-md bg-white border border-stone-300 text-sm text-stone-900"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Enviar a Moderación</span>
-                </button>
-              </div>
-            </form>
+                  <option value="todas">Todos los temas</option>
+                  {categoriesInView.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {CATEGORY[c.id]} ({c.count})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
-        </div>
-      )}
+
+          {shown.length === 0 ? (
+            <p className="mt-3 px-4 py-4 text-sm text-stone-600 border border-dashed border-stone-300 rounded-lg">
+              {activeTab === 'publicas'
+                ? 'Todavía no hay sugerencias aprobadas. La tuya puede ser la primera.'
+                : 'Aún no has enviado sugerencias.'}
+            </p>
+          ) : (
+            <ul className="mt-3 bg-white border border-stone-200 rounded-lg divide-y divide-stone-200">
+              {shown.map(sug => (
+                <li key={sug.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-base font-semibold text-stone-950">{sug.title}</h2>
+                    {activeTab === 'mis_sugerencias' && (
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS[sug.status].className}`}>
+                        {STATUS[sug.status].label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-stone-600">
+                    {CATEGORY[sug.category]} · {sug.createdAt}
+                    {activeTab === 'publicas' && ` · ${sug.authorName}`}
+                  </p>
+                  <p className="mt-1.5 text-base text-stone-800 leading-relaxed">{sug.description}</p>
+                  {sug.adminComment && (
+                    <blockquote className="mt-3 pl-3 border-l-2 border-stone-300">
+                      <p className="text-sm font-semibold text-stone-900">Respuesta del comité</p>
+                      <p className="text-sm text-stone-700 leading-relaxed">{sug.adminComment}</p>
+                    </blockquote>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 };

@@ -11,6 +11,7 @@ import {
   SponsorAd,
   ModerationTicket
 } from '../types';
+import { ROUTE_GEOMETRY } from './routeGeometry.generated';
 
 export const INITIAL_SPECIES: Species[] = [
   {
@@ -24,7 +25,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Lagunas abiertas, estuarios y meandros con vegetación sumergida (luchecillo).',
     description: 'Ave emblemática de los humedales valdivianos. De cuerpo blanco inmaculado con cuello y cabeza negros azabache, pico plomizo con carúncula roja en la base.',
     funFact: 'Tras el terremoto de 1960 en Valdivia, los terrenos hundidos se transformaron en santuarios biológicos donde los cisnes encontraron su refugio más importante de Sudamérica.',
-    image: 'https://images.unsplash.com/photo-1549480017-d76466a4b7e8?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/cisne.jpg',
+    imageCredit: { author: 'Murray Foubister', license: 'CC BY-SA 2.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Black-necked_Swans_(Cygnus_melancoryphus),_near_Chacao,_Chile_(25184819835).jpg' },
     soundKey: 'cisne',
     soundLabel: 'Bocina resonante',
     approxLocation: [-39.8525, -73.2285],
@@ -42,7 +44,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Sotobosque denso y húmedo de hualves, cañaverales de colihue y bosques de ribera.',
     description: 'Pequeña ave terrestre con pecho rufo anaranjado brillante, cejas blancas y cola erguida. Es más fácil escucharlo cantar que observarlo por su esquivo comportamiento en la hojarasca.',
     funFact: 'En la mitología huilliche y mapuche, su potente trino emitido al lado derecho del caminante anuncia buena fortuna en el sendero, mientras que a la izquierda advierte precaución.',
-    image: 'https://images.unsplash.com/photo-1555169062-013468b47731?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/chucao.jpg',
+    imageCredit: { author: 'Haplochromis', license: 'CC BY-SA 3.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Scelorchilus_rubecula.JPG' },
     soundKey: 'chucao',
     soundLabel: 'Canto del bosque',
     approxLocation: [-39.8540, -73.2230],
@@ -60,7 +63,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Riberas de ríos calmos, canales de marea y lagunas protegidas.',
     description: 'Posee una cresta prominente gris azulada, pecho rojizo canela y un pico fuerte y afilado con el que zambulle en picada vertical para atrapar peces pequeños.',
     funFact: 'Se posa pacientemente sobre ramas secas de pitra que cuelgan del agua, permaneciendo inmóvil hasta que detecta el reflejo de una carmelita o puye.',
-    image: 'https://images.unsplash.com/photo-1518992028580-6d97bdca06c3?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/martin-pescador.jpg',
+    imageCredit: { author: 'Andreas Trepte', license: 'CC BY-SA 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Ringed_Kingfisher,_Rio_Sarar%C3%A9,_Mato_Grosso,_Brazil.jpg' },
     soundKey: 'martin_pescador',
     soundLabel: 'Matraca estridente',
     approxLocation: [-39.8510, -73.2245],
@@ -78,7 +82,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Pajonales de totora y juncales densos en las orillas húmedas del Angachilla.',
     description: 'Una de las aves más coloridas del hemisferio sur: corona negra con raya rubí, lomo verde brillante, vientre amarillo canario, alas con franja blanca y cola tricolor.',
     funFact: 'Construye un nido en forma de taza perfectamente tejido entre los tallos de junco con telarañas y plumón vegetal, resistente a las crecidas de marea.',
-    image: 'https://images.unsplash.com/photo-1612024782955-49fae79e42bb?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/siete-colores.jpg',
+    imageCredit: { author: 'Netoguz8', license: 'CC BY-SA 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Sietecolores_(Tachuris_rubrigastra)_Laguna_Norte,_Humedal_Ojos_de_Mar.jpg' },
     soundKey: 'siete_colores',
     soundLabel: 'Pío armónico',
     approxLocation: [-39.8532, -73.2270],
@@ -96,7 +101,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Esteros someros, orillas de río e islotes pantanosos.',
     description: 'La garza más grande de Chile y Sudamérica, con hasta 1.3 metros de envergadura alar. Corona y cresta negra con plumas alargadas, pecho blanco rayado y cuerpo gris ceniza.',
     funFact: 'Caza peces e invertebrados al acecho, manteniéndose completamente inmóvil durante largos minutos en aguas someras hasta disparar su cuello elástico.',
-    image: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/garza-cuca.jpg',
+    imageCredit: { author: 'Berrucomons', license: 'CC BY-SA 3.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:H%C3%A9ron_cocoi.JPG' },
     soundKey: 'garza_cuca',
     soundLabel: 'Graznido grave',
     approxLocation: [-39.8505, -73.2290],
@@ -114,7 +120,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Canales con totorales y pastizales ribereños en el humedal.',
     description: 'El roedor nativo más grande de Chile. Posee pelaje castaño impermeable, patas traseras con membranas interdigitales para nadar y característicos incisivos anaranjados brillantes.',
     funFact: 'Las hembras poseen mamas en el dorso del cuerpo, permitiendo amamantar a sus crías mientras nada sigilosamente por el agua.',
-    image: 'https://images.unsplash.com/photo-1590422749897-476722d41fae?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/coipo.jpg',
+    imageCredit: { author: 'Charles J. Sharp', license: 'CC BY-SA 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Coypu_(Myocastor_coypus_coypus)_swimming_Tricao.jpg' },
     soundKey: 'coipo',
     soundLabel: 'Chapotero acuático',
     approxLocation: [-39.8538, -73.2255],
@@ -131,7 +138,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Suelo húmedo del bosque siempreverde valdiviano, musgos y restos de hojarasca.',
     description: 'Diminuto anfibio con hocico alargado y puntiagudo en forma de hoja triangular. Su coloración varía entre marrón tierra y verde esmeralda para mimetizarse.',
     funFact: 'El macho realiza una crianza bucal única en el reino animal: ingiere los renacuajos y los cría en su saco vocal gular hasta que metamorfosean y salen como ranitas formadas.',
-    image: 'https://images.unsplash.com/photo-1563281577-a7be47e20db9?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/ranita-darwin.jpg',
+    imageCredit: { author: 'Jalmonacida', license: 'CC BY-SA 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Ranita_de_Darwin_(Rhinoderma_darwinii).jpg' },
     soundKey: 'ranita_darwin',
     soundLabel: 'Campanilla de cristal',
     approxLocation: [-39.8550, -73.2220],
@@ -148,7 +156,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Suelos pantanosos permanentemente inundados; forma el ecosistema de "hualve".',
     description: 'Árbol siempreverde de corteza agrietada blanquecina con raíces adventicias que forman zancos capaces de respirar en terrenos anegados con baja oxigenación.',
     funFact: 'El bosque pantanoso de Pitra en Angachilla es un amortiguador natural que retiene crecidas de lluvias torrenciales y purifica el agua dulce de Valdivia.',
-    image: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/pitra.jpg',
+    imageCredit: { author: 'Consultaplantas', license: 'CC BY-SA 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Myrceugenia_exsucca_3c.JPG' },
     approxLocation: [-39.8542, -73.2238],
     inaturalistUrl: 'https://www.inaturalist.org/taxa/431267-Myrceugenia-exsucca'
   },
@@ -163,7 +172,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Orillas de lagunas, marismas y bancos fluviales de aguas tranquilas.',
     description: 'Planta macrófita de tallos cilíndricos esponjosos de 2 a 4 metros de altura, con cámaras de aire internas que le otorgan flotabilidad y resistencia al viento sureño.',
     funFact: 'Es el refugio de anidación preferido por el cisne de cuello negro y el siete colores, y actúa como filtro biofísico de nutrientes y sedimentos.',
-    image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/totora.jpg',
+    imageCredit: { author: 'Krzysztof Ziarnek, Kenraiz', license: 'CC BY 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Schoenoplectus_californicus_kz02.jpg' },
     approxLocation: [-39.8520, -73.2280],
     inaturalistUrl: 'https://www.inaturalist.org/taxa/78996-Schoenoplectus-californicus'
   },
@@ -178,7 +188,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Bordes de cursos de agua y bosques húmedos templados lluviosos.',
     description: 'Árbol sagrado del pueblo Mapuche. Hojas gruesas verde oscuras por el haz y glaucas blanquecinas por el envés, con flores blancas estrelladas aromáticas.',
     funFact: 'Su corteza contiene altas dosis de vitamina C y fue empleada por marineros en el estrecho de Magallanes para curar el escorbuto en el siglo XVI.',
-    image: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/canelo.jpg',
+    imageCredit: { author: 'Eric Hunt', license: 'CC BY 2.5', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Drimys_winteri.jpg' },
     approxLocation: [-39.8530, -73.2240],
     inaturalistUrl: 'https://www.inaturalist.org/taxa/180630-Drimys-winteri'
   },
@@ -194,7 +205,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Ramas y troncos de árboles del género Nothofagus (roble, coigüe) en los bosques del santuario.',
     description: 'Hongo parásito estacional de forma globular carnosa, de color blanco y anaranjado brillante con superficie alveolar que fructifica durante la primavera valdiviana.',
     funFact: 'Tradicional alimento recolectado ancestralmente por el pueblo Mapuche y consumido fresco en ensaladas con cilantro y limón, o en empanadas criollas sureñas.',
-    image: 'https://images.unsplash.com/photo-1543168256-418811576931?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/diguene.jpg',
+    imageCredit: { author: 'Robert Motecinos Holda', license: 'CC0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Cyttaria_Espinosae_(Dig%C3%BCe%C3%B1e).jpg' },
     approxLocation: [-39.8522, -73.2235],
     inaturalistUrl: 'https://www.inaturalist.org/taxa/154483-Cyttaria-darwinii'
   },
@@ -209,7 +221,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Suelo rico en humus y hojarasca de los bosques templados lluviosos de la ribera del Angachilla.',
     description: 'Hongo de llamativa morfología con aspecto de coral marino, de ramificaciones densas de color amarillo azufre o crema con base blanquecina gruesa.',
     funFact: 'Es uno de los hongos silvestres comestibles más codiciados en las ferias fluviales de Los Ríos. Su presencia indica excelente salud biológica del suelo boscoso.',
-    image: 'https://images.unsplash.com/photo-1607656311408-1e4cf26322db?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/changle.jpg',
+    imageCredit: { author: 'Bernie', license: 'public domain', sourceUrl: 'https://commons.wikimedia.org/wiki/File:AD2009Sep06_Ramaria_flava_01.jpg' },
     approxLocation: [-39.8545, -73.2225],
     inaturalistUrl: 'https://www.inaturalist.org/taxa/48705-Ramaria-flava'
   },
@@ -223,7 +236,8 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Hojarasca sombría y húmeda bajo coigües, arrayanes y pitras del humedal.',
     description: 'Seta de color violeta púrpura intenso y sombrero brillante y viscoso con pie cilíndrico robusto y una cortina filamentosa en ejemplares jóvenes.',
     funFact: 'Es un hongo micorrícico esencial que se conecta con las raíces de los árboles nativos, transfiriéndoles agua y minerales a cambio de carbohidratos fotosintéticos.',
-    image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/cortinario-morado.jpg',
+    imageCredit: { author: 'Natalia Reyes Escobar', license: 'CC BY-SA 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Cortinarius_magellanicus_Parque_Nacional_Puyehue_07.jpg' },
     approxLocation: [-39.8536, -73.2248],
     inaturalistUrl: 'https://www.inaturalist.org/taxa/126938-Cortinarius-magellanicus'
   },
@@ -238,174 +252,107 @@ export const INITIAL_SPECIES: Species[] = [
     habitat: 'Troncos caídos y tocones añosos en el sendero del hualve.',
     description: 'Hongo perenne con cuerpo fructífero leñoso en forma de repisa o consola, de superficie superior marrón canela rugosa y poros finos blanquecinos por debajo.',
     funFact: 'Cumple el rol ecológico fundamental de reciclar la madera muerta del bosque, devolviendo nutrientes vitales al suelo del humedal.',
-    image: 'https://images.unsplash.com/photo-1546853020-ca4909aef454?auto=format&fit=crop&w=900&q=80',
+    image: '/especies/oreja-palo.jpg',
+    imageCredit: { author: 'Rosser1954', license: 'CC BY-SA 4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Ganoderma_australe,_Southern_Bracket._Lambroughton,_North_Ayrshire._Dead_elm_trunk.jpg' },
     approxLocation: [-39.8518, -73.2252],
     inaturalistUrl: 'https://www.inaturalist.org/taxa/347895-Ganoderma-australe'
   }
 ];
 
+function fromGpx(id: string): Pick<HumedalRoute, 'distanceKm' | 'path' | 'detailUrl' | 'bounds' | 'isLoop' | 'source'> {
+  const g = ROUTE_GEOMETRY[id];
+  return {
+    distanceKm: g.distanceKm,
+    path: g.overview,
+    detailUrl: g.detailUrl,
+    bounds: g.bounds,
+    isLoop: g.isLoop,
+    source: g.source
+  };
+}
+
+// Trazados reales registrados con GPS (backend/Points_Route, regenerar con `npm run routes`).
+// La Travesía Ribera Fluvial y Muelle queda fuera hasta tener su GPX.
 export const HUMEDAL_ROUTES: HumedalRoute[] = [
   {
-    id: 'ruta-cisnes',
-    name: 'Sendero Los Cisnes y Miradores Acuáticos',
+    id: 'ruta-circuito',
+    name: 'Circuito Angachilla',
     difficulty: 'Fácil',
-    distanceKm: 1.2,
-    estimatedMinutes: 25,
-    description: 'Ruta en pasarelas de madera elevadas que recorre las lagunas protegidas, ideal para avistamiento de cisnes de cuello negro, taguas y garzas.',
-    color: '#059669', // emerald
-    highlight: 'Apta para toda la familia, coches de bebé y fotografía de avifauna.',
-    surfaceType: 'Pasarela de ciprés con barandillas',
-    path: [
-      [-39.8495, -73.2260],
-      [-39.8505, -73.2268],
-      [-39.8512, -73.2274],
-      [-39.8520, -73.2282],
-      [-39.8528, -73.2290],
-      [-39.8535, -73.2285],
-      [-39.8542, -73.2275]
-    ],
+    estimatedMinutes: ROUTE_GEOMETRY['ruta-circuito'].recordedMinutes ?? 60,
+    description: 'Circuito que sale y vuelve al mismo acceso, hacia el poniente del humedal. Se recorre sin apuro en alrededor de una hora, con paradas para observar aves.',
+    color: '#047857',
+    ...fromGpx('ruta-circuito'),
     checkpoints: [
       {
-        id: 'cp-1-1',
-        name: 'Portal de Acceso Claro de Luna',
-        instruction: 'Inicia tu caminata ingresando por la pasarela de madera principal.',
-        pointIndex: 0,
+        id: 'cp-circuito-inicio',
+        name: 'Acceso al humedal',
+        instruction: 'Comienza el circuito desde el acceso y sigue el sendero hacia el poniente.',
+        progress: 0,
         alertType: 'info',
-        alertMessage: 'Mantén a tus mascotas con correa y no arrojes pan a los cisnes.',
-        totemQrId: 'ANG-QR-01'
+        alertMessage: 'Mantén a tus mascotas con correa y no alimentes a la fauna.'
       },
       {
-        id: 'cp-1-2',
-        name: 'Pasarela de los Juncales',
-        instruction: 'Continúa recto 250 metros entre los totorales densos.',
-        pointIndex: 2,
+        id: 'cp-circuito-mitad',
+        name: 'Mitad del circuito',
+        instruction: 'Vas en la mitad del circuito. Desde aquí el sendero vuelve hacia el acceso.',
+        progress: 0.5,
         alertType: 'viewpoint',
-        alertMessage: 'Punto de alta probabilidad de avistamiento de Siete Colores en los juncos.',
-        totemQrId: 'ANG-QR-02'
+        alertMessage: 'Buen tramo para detenerse en silencio y escuchar a las aves.'
       },
       {
-        id: 'cp-1-3',
-        name: 'Mirador Central Cisne de Cuello Negro',
-        instruction: 'Gira suavemente a la izquierda hacia la plataforma panorámica elevada.',
-        pointIndex: 4,
-        alertType: 'viewpoint',
-        alertMessage: 'Observatorio con catalejos instalados y bancos de descanso.',
-        totemQrId: 'ANG-QR-03'
-      },
-      {
-        id: 'cp-1-4',
-        name: 'Estación Laguna de las Taguas',
-        instruction: 'Fin del tramo pasarela. Conexión hacia el circuito del bosque.',
-        pointIndex: 6,
-        alertType: 'info',
-        alertMessage: 'Has completado la ruta con éxito. ¡Escanea el tótem para registrar tu visita!'
-      }
-    ]
-  },
-  {
-    id: 'ruta-bosque',
-    name: 'Circuito Bosque Pantanoso y Hualves',
-    difficulty: 'Media',
-    distanceKm: 2.1,
-    estimatedMinutes: 45,
-    description: 'Sendero inmersivo bajo la copa de pitras centenarias, canelos y arrayanes. El hogar natural del Chucao y la Ranita de Darwin.',
-    color: '#0284c7', // sky
-    highlight: 'Sombra tupida, aromas de hojas de canelo y cantos mágicos del bosque húmedo.',
-    surfaceType: 'Tierra compactada con tramos de durmientes de madera',
-    path: [
-      [-39.8495, -73.2260],
-      [-39.8502, -73.2250],
-      [-39.8515, -73.2240],
-      [-39.8530, -73.2230],
-      [-39.8545, -73.2225],
-      [-39.8555, -73.2235],
-      [-39.8542, -73.2255],
-      [-39.8530, -73.2268]
-    ],
-    checkpoints: [
-      {
-        id: 'cp-2-1',
-        name: 'Bifurcación hacia el Hualve',
-        instruction: 'Toma el sendero sombreado hacia el este adentrándote en el bosque.',
-        pointIndex: 1,
-        alertType: 'caution',
-        alertMessage: 'Suelo húmedo en época de lluvia. Se recomienda calzado de trekking.'
-      },
-      {
-        id: 'cp-2-2',
-        name: 'Tótem Hualve Milenario de Pitras',
-        instruction: 'Avanza 400 metros entre los árboles de raíces zancudas sumergidas.',
-        pointIndex: 3,
-        alertType: 'info',
-        alertMessage: 'Detén el paso y escucha: el Chucao suele cantar en esta quebrada.',
-        totemQrId: 'ANG-QR-04'
-      },
-      {
-        id: 'cp-2-3',
-        name: 'Refugio de la Ranita de Darwin',
-        instruction: 'Bordeando la zona de musgos húmedos, mantén silencio absoluto.',
-        pointIndex: 5,
-        alertType: 'warning',
-        alertMessage: 'Área de alta fragilidad ecológica: no salirse del sendero delimitado.',
-        totemQrId: 'ANG-QR-06'
-      },
-      {
-        id: 'cp-2-4',
-        name: 'Retorno Mirador Ribereño',
-        instruction: 'Cruce con la pasarela central hacia la salida.',
-        pointIndex: 7,
+        id: 'cp-circuito-fin',
+        name: 'Regreso al acceso',
+        instruction: 'Llegaste de vuelta al acceso. Terminaste el Circuito Angachilla.',
+        progress: 1,
         alertType: 'info'
       }
     ]
   },
   {
-    id: 'ruta-ribera-kayak',
-    name: 'Travesía Ribera Fluvial y Muelle Angachilla',
-    difficulty: 'Aventura',
-    distanceKm: 3.4,
-    estimatedMinutes: 75,
-    description: 'Recorrido ribereño a orillas del río Angachilla con vista a la navegación tradicional de botes y punto de embarque para kayaks recreativos.',
-    color: '#d97706', // amber
-    highlight: 'Vistas abiertas al curso del río, brisa fluvial y muelle comunitario de madera.',
-    surfaceType: 'Riberas de pasto, ripio fino y pontones flotantes',
-    path: [
-      [-39.8495, -73.2260],
-      [-39.8488, -73.2245],
-      [-39.8492, -73.2220],
-      [-39.8505, -73.2205],
-      [-39.8522, -73.2195],
-      [-39.8540, -73.2200],
-      [-39.8550, -73.2215]
-    ],
+    id: 'ruta-canelos',
+    name: 'Bosque Los Canelos',
+    difficulty: 'Fácil',
+    estimatedMinutes: ROUTE_GEOMETRY['ruta-canelos'].recordedMinutes ?? 25,
+    description: 'Recorrido corto por el bosque de canelos, hacia el sur del acceso. Ideal para una visita breve.',
+    color: '#0e7490',
+    ...fromGpx('ruta-canelos'),
     checkpoints: [
       {
-        id: 'cp-3-1',
-        name: 'Borde Costero Fluvial',
-        instruction: 'Sigue la huella peatonal paralela al curso calmo del río Angachilla.',
-        pointIndex: 1,
+        id: 'cp-canelos-inicio',
+        name: 'Acceso al humedal',
+        instruction: 'Comienza en el acceso y toma el sendero hacia el sur, en dirección al bosque.',
+        progress: 0,
         alertType: 'info',
-        alertMessage: 'Revisa el horario de pleamar y bajamar si viajas con kayak.'
+        alertMessage: 'Mantén a tus mascotas con correa y no alimentes a la fauna.'
       },
       {
-        id: 'cp-3-2',
-        name: 'Puesto de Observación Martín Pescador',
-        instruction: 'Continúa 500 metros hacia el recodo donde descansan los botes artesanales.',
-        pointIndex: 3,
-        alertType: 'viewpoint',
-        alertMessage: 'Frecuente vuelo rasante de martines pescadores zambulléndose.',
-        totemQrId: 'ANG-QR-05'
+        id: 'cp-canelos-bosque',
+        name: 'Bosque de canelos',
+        instruction: 'Estás entrando al bosque de canelos. Camina despacio y en silencio.',
+        progress: 0.4,
+        alertType: 'caution',
+        alertMessage: 'El suelo del bosque puede estar húmedo y resbaladizo.'
       },
       {
-        id: 'cp-3-3',
-        name: 'Muelle Náutico Ecológico',
-        instruction: 'Llegada al pontón flotante para desembarco de kayak o contemplación.',
-        pointIndex: 6,
-        alertType: 'info',
-        alertMessage: 'Punto de encuentro de boteros y guías locales del humedal.'
+        id: 'cp-canelos-fin',
+        name: 'Fin del recorrido',
+        instruction: 'Terminaste el recorrido Bosque Los Canelos, a pocos metros del acceso.',
+        progress: 1,
+        alertType: 'info'
       }
     ]
   }
 ];
+
+// IDs anteriores a los trazados GPS, todavía presentes en eventos guardados en el navegador
+const LEGACY_ROUTE_IDS: Record<string, string> = {
+  'ruta-cisnes': 'ruta-circuito',
+  'ruta-bosque': 'ruta-canelos'
+};
+
+export function resolveRouteId(id: string): string {
+  return LEGACY_ROUTE_IDS[id] ?? id;
+}
 
 export const POINTS_OF_INTEREST: PointOfInterest[] = [
   {
@@ -548,12 +495,12 @@ export const INITIAL_WETLAND_EVENTS: WetlandEvent[] = [
     id: 'evt-1',
     title: 'Avistamiento Matutino de Cisnes y Aves Acuáticas',
     description: 'Recorrido guiado con telescopios terrestres y binoculares de alta definición. Observaremos cortejos y alimentación de cisnes de cuello negro y taguas.',
-    date: 'Sábado 26 de Septiembre, 2026',
+    date: '2026-09-26',
     time: '08:30 - 10:30 hrs',
     locationName: 'Mirador Central Cisne de Cuello Negro',
     coordinates: [-39.8528, -73.2290],
-    routeId: 'ruta-cisnes',
-    routeName: 'Sendero Los Cisnes',
+    routeId: 'ruta-circuito',
+    routeName: 'Circuito Angachilla',
     category: 'avistamiento',
     capacity: 25,
     registeredCount: 19,
@@ -564,12 +511,12 @@ export const INITIAL_WETLAND_EVENTS: WetlandEvent[] = [
     id: 'evt-2',
     title: 'Taller de Fotografía de Humedal al Atardecer',
     description: 'Aprende composición, reflejos en el agua y fotografía de aves en vuelo aprovechando la hora dorada de Valdivia. Para teléfonos y cámaras.',
-    date: 'Domingo 27 de Septiembre, 2026',
+    date: '2026-09-27',
     time: '17:00 - 19:00 hrs',
     locationName: 'Pasarela de los Juncales',
     coordinates: [-39.8512, -73.2274],
-    routeId: 'ruta-cisnes',
-    routeName: 'Sendero Los Cisnes',
+    routeId: 'ruta-circuito',
+    routeName: 'Circuito Angachilla',
     category: 'fotografia',
     capacity: 20,
     registeredCount: 14,
@@ -580,12 +527,12 @@ export const INITIAL_WETLAND_EVENTS: WetlandEvent[] = [
     id: 'evt-3',
     title: 'Caminata Bioacústica: Cantos del Chucao y Fauna Oculta',
     description: 'Inmersión sensorial por el bosque pantanoso con micrófonos parabólicos y auriculares. Descubriremos las frecuencias y dialectos del Chucao y Rayadito.',
-    date: 'Sábado 26 de Septiembre, 2026',
+    date: '2026-09-26',
     time: '11:00 - 12:45 hrs',
     locationName: 'Tótem Hualve Milenario de Pitras',
     coordinates: [-39.8530, -73.2230],
-    routeId: 'ruta-bosque',
-    routeName: 'Circuito Bosque Pantanoso',
+    routeId: 'ruta-canelos',
+    routeName: 'Bosque Los Canelos',
     category: 'educativo',
     capacity: 16,
     registeredCount: 13,
@@ -596,12 +543,12 @@ export const INITIAL_WETLAND_EVENTS: WetlandEvent[] = [
     id: 'evt-4',
     title: 'Búsqueda Nocturna de Anfibios y Ranita de Darwin',
     description: 'Expedición nocturna con linternas de luz roja para registrar anfibios nativos sin perturbarlos. Conoce la maravillosa crianza bucal del macho de Ranita de Darwin.',
-    date: 'Viernes 2 de Octubre, 2026',
+    date: '2026-10-02',
     time: '19:30 - 21:15 hrs',
     locationName: 'Refugio de la Ranita de Darwin',
     coordinates: [-39.8545, -73.2225],
-    routeId: 'ruta-bosque',
-    routeName: 'Circuito Bosque Pantanoso',
+    routeId: 'ruta-canelos',
+    routeName: 'Bosque Los Canelos',
     category: 'educativo',
     capacity: 12,
     registeredCount: 10,
@@ -612,7 +559,7 @@ export const INITIAL_WETLAND_EVENTS: WetlandEvent[] = [
     id: 'evt-5',
     title: 'Remada Comunitaria y Limpieza Fluvial en Kayak',
     description: 'Travesía a remo por las márgenes del río Angachilla recolectando plásticos atrapados en juncos. Se facilitan kayaks y chalecos a inscritos.',
-    date: 'Sábado 3 de Octubre, 2026',
+    date: '2026-10-03',
     time: '10:00 - 13:00 hrs',
     locationName: 'Muelle Comunitario Angachilla',
     coordinates: [-39.8505, -73.2205],
@@ -628,7 +575,7 @@ export const INITIAL_WETLAND_EVENTS: WetlandEvent[] = [
     id: 'evt-6',
     title: 'Plantación Ciudadana de Pitras y Árboles Ribereños',
     description: 'Reforestación con especies nativas para estabilizar las orillas y crear nuevos corredores biológicos. Se entregan herramientas y sustrato orgánico.',
-    date: 'Domingo 4 de Octubre, 2026',
+    date: '2026-10-04',
     time: '11:00 - 13:30 hrs',
     locationName: 'Portal Claro de Luna',
     coordinates: [-39.8495, -73.2260],
@@ -924,7 +871,7 @@ export const INITIAL_MODERATION_TICKETS: ModerationTicket[] = [
     speciesName: 'Cisne de Cuello Negro',
     locationName: 'Mirador Los Cisnes',
     locationCoords: [-39.8525, -73.2285],
-    imageUrl: 'https://images.unsplash.com/photo-1549480017-d76466a4b7e8?auto=format&fit=crop&w=800&q=80',
+    imageUrl: '/especies/cisne.jpg',
     status: 'pendiente'
   },
   {
@@ -938,7 +885,7 @@ export const INITIAL_MODERATION_TICKETS: ModerationTicket[] = [
     speciesName: 'Chucao',
     locationName: 'Sendero del Hualve',
     locationCoords: [-39.8540, -73.2230],
-    imageUrl: 'https://images.unsplash.com/photo-1555169062-013468b47731?auto=format&fit=crop&w=800&q=80',
+    imageUrl: '/especies/chucao.jpg',
     status: 'pendiente'
   },
   {

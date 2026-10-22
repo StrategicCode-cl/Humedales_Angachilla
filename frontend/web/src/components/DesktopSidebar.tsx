@@ -40,7 +40,7 @@ interface DesktopSidebarProps {
 const navItems = [
   { id: 'avisos', label: 'Inicio', icon: Home },
   { id: 'mapa', label: 'Mapa & Senderos', icon: Compass },
-  { id: 'eventos', label: 'Eventos', icon: Calendar },
+  { id: 'eventos', label: 'Calendario', icon: Calendar },
   { id: 'galeria', label: 'Galería', icon: Pin },
   { id: 'catalogo', label: 'Biodiversidad', icon: BookOpen },
   { id: 'sugerencias', label: 'Buzón Ciudadano', icon: MessageSquarePlus },
@@ -166,7 +166,15 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           <span className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-1000 whitespace-nowrap">Apoyar al santuario</span>
         </button>
 
-        <div className="flex items-center gap-3 px-1 py-1.5">
+        <div className="flex items-center gap-1 px-1 py-1.5">
+          <Link
+            href={pathForTab('perfil')}
+            aria-current={currentTab === 'perfil' ? 'page' : undefined}
+            title="Ver tu perfil"
+            className={`min-w-0 flex-1 flex items-center gap-3 rounded-lg p-0.5 -m-0.5 transition-colors ${
+              currentTab === 'perfil' ? 'bg-stone-100' : 'hover:bg-stone-50'
+            }`}
+          >
           <div className="w-9 h-9 rounded-full bg-emerald-800 text-white flex items-center justify-center text-sm font-bold overflow-hidden shrink-0">
             {currentUser?.avatar ? (
               <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
@@ -182,6 +190,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               {currentUser?.role === 'admin' ? 'Guardaparques' : currentUser ? currentUser.email : 'Sin sesión iniciada'}
             </p>
           </div>
+          </Link>
           {currentUser ? (
             <button
               onClick={onLogout}

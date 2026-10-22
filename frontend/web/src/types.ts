@@ -37,6 +37,11 @@ export interface Species {
   description: string;
   funFact: string;
   image: string;
+  imageCredit?: {
+    author: string;
+    license: string;
+    sourceUrl: string;
+  };
   soundKey?: string;
   soundLabel?: string;
   approxLocation?: [number, number];
@@ -48,10 +53,26 @@ export interface RouteCheckpoint {
   id: string;
   name: string;
   instruction: string;
-  pointIndex: number;
+  progress: number; // fracción de la distancia recorrida: 0 = inicio, 1 = fin
   alertType?: 'info' | 'warning' | 'viewpoint' | 'caution';
   alertMessage?: string;
   totemQrId?: string;
+}
+
+export interface RouteGeometry {
+  distanceKm: number;
+  recordedMinutes: number | null;
+  isLoop: boolean;
+  endGapM: number;
+  bounds: [[number, number], [number, number]];
+  overview: [number, number][];
+  detailUrl: string;
+  detailPoints: number;
+  source: {
+    author: string | null;
+    url: string | null;
+    recordedAt: string | null;
+  };
 }
 
 export interface HumedalRoute {
@@ -62,9 +83,13 @@ export interface HumedalRoute {
   estimatedMinutes: number;
   description: string;
   color: string;
-  highlight: string;
-  surfaceType: string;
-  path: [number, number][]; // [lat, lng]
+  highlight?: string;
+  surfaceType?: string;
+  path: [number, number][]; // vista general simplificada [lat, lng]
+  detailUrl?: string; // trazado detallado, se descarga al seleccionar la ruta
+  bounds?: [[number, number], [number, number]];
+  isLoop?: boolean;
+  source?: RouteGeometry['source'];
   checkpoints: RouteCheckpoint[];
 }
 
@@ -195,6 +220,8 @@ export interface WetlandWeatherData {
   weatherLabel: string;
   isDay: boolean;
   updatedAt: string;
+  fetchedAt?: string; // ISO de la consulta a la API
+  isCached?: boolean; // datos guardados de una consulta anterior (sin conexión)
   dailyForecast: DayForecast[];
   wetlandAlerts: WetlandWeatherAlert[];
 }

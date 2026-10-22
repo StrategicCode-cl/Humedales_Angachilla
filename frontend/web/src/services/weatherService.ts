@@ -1,8 +1,8 @@
 import { WetlandWeatherData, WetlandWeatherAlert, DayForecast } from '../types';
 
-// Valdivia - Humedal Angachilla coordinates
-const LATITUDE = -39.8515;
-const LONGITUDE = -73.2260;
+// Valdivia - Humedal Angachilla (acceso de los senderos registrados con GPS)
+const LATITUDE = -39.8565;
+const LONGITUDE = -73.2385;
 
 // WMO Weather interpretation table (Spanish localized for southern Chile / Valdivia)
 export function interpretWeatherCode(code: number, isDay: boolean = true): { label: string; icon: string } {
@@ -63,7 +63,8 @@ export function generateWetlandAlerts(
   precipProb: number,
   windSpeed: number,
   weatherCode: number,
-  uvIndex: number
+  uvIndex: number,
+  isDay: boolean = true
 ): WetlandWeatherAlert[] {
   const alerts: WetlandWeatherAlert[] = [];
 
@@ -85,7 +86,7 @@ export function generateWetlandAlerts(
       id: 'alert-fog-visibility',
       severity: 'info',
       category: 'avistamiento',
-      title: 'Bruma matinal sobre los meandros',
+      title: 'Bruma sobre los meandros',
       message: 'Niebla densa sobre los espejos de agua. Excelente para escuchar cantos de chucaos y ranitas; usa binoculares para aves en el agua.',
       iconType: 'fog'
     });
@@ -109,8 +110,8 @@ export function generateWetlandAlerts(
       id: 'alert-tide-waterlevel',
       severity: 'caution',
       category: 'marea',
-      title: 'Crecida estuarina en estero',
-      message: 'Marea alta y aporte de precipitaciones elevan el nivel del agua en bordes de pasarelas del sector sur.',
+      title: 'Posible crecida en el estero',
+      message: 'Las lluvias pueden elevar el nivel del agua en los bordes de las pasarelas. Revisa el estado del sendero antes de bajar a la orilla.',
       iconType: 'waves'
     });
   }
@@ -121,14 +122,14 @@ export function generateWetlandAlerts(
       id: 'alert-uv-reflection',
       severity: 'caution',
       category: 'uv',
-      title: `Índice UV Alto (${Math.round(uvIndex)}) en espejo de agua`,
+      title: `Índice UV alto (${Math.round(uvIndex)})`,
       message: 'La superficie del agua multiplica la radiación ultravioleta. Utiliza gorro legionario, gafas de sol y protector solar FPS 50+.',
       iconType: 'sun'
     });
   }
 
   // 6. Ideal birdwatching window (if calm conditions)
-  if (windSpeed < 14 && precipitation < 0.5 && weatherCode !== 95) {
+  if (isDay && windSpeed < 14 && precipitation < 0.5 && weatherCode < 95) {
     alerts.push({
       id: 'alert-good-birding',
       severity: 'good',
@@ -145,8 +146,8 @@ export function generateWetlandAlerts(
       id: 'alert-general-visit',
       severity: 'good',
       category: 'general',
-      title: 'Condiciones favorables en el sendero',
-      message: 'Sendero y miradores del humedal habilitados para recorrido normal y fotografía.',
+      title: 'Sin avisos por el clima',
+      message: 'Las condiciones actuales no afectan el recorrido por los senderos.',
       iconType: 'check'
     });
   }
@@ -217,7 +218,8 @@ export async function fetchWetlandWeather(): Promise<WetlandWeatherData> {
       precipitationProbability,
       windSpeed,
       weatherCode,
-      uvIndex
+      uvIndex,
+      isDay
     );
 
     const weatherData: WetlandWeatherData = {
@@ -233,6 +235,7 @@ export async function fetchWetlandWeather(): Promise<WetlandWeatherData> {
       weatherLabel: weatherInfo.label,
       isDay,
       updatedAt: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+      fetchedAt: new Date().toISOString(),
       dailyForecast,
       wetlandAlerts: alerts
     };
@@ -246,40 +249,17 @@ export async function fetchWetlandWeather(): Promise<WetlandWeatherData> {
 
     return weatherData;
   } catch (error) {
-    console.warn('Fallo al obtener clima en vivo, usando datos de respaldo:', error);
-    
-    // Check localStorage cache
+    console.warn('Fallo al obtener clima en vivo:', error);
+
+    // Last good data, flagged as cached; with nothing cached the caller shows the error
     const cached = localStorage.getItem('angachilla_weather_cache');
     if (cached) {
       try {
-        return JSON.parse(cached);
+        return { ...JSON.parse(cached), isCached: true };
       } catch {
-        // continue to mock fallback
+        // fall through to the error
       }
     }
-
-    // Default Valdivian temperate rainforest wetland fallback
-    const fallbackAlerts = generateWetlandAlerts(14, 82, 0.4, 40, 9, 2, 4);
-    return {
-      temperature: 14,
-      apparentTemperature: 13,
-      humidity: 82,
-      windSpeed: 9,
-      windDirection: 210,
-      precipitation: 0.2,
-      precipitationProbability: 35,
-      uvIndex: 4.1,
-      weatherCode: 2,
-      weatherLabel: 'Parcialmente nublado',
-      isDay: true,
-      updatedAt: 'Reciente',
-      dailyForecast: [
-        { date: '2026-09-21', dayName: 'Hoy', maxTemp: 16, minTemp: 8, rainProb: 35, weatherCode: 2, weatherLabel: 'Parcialmente nublado' },
-        { date: '2026-09-22', dayName: 'Mañana', maxTemp: 14, minTemp: 9, rainProb: 65, weatherCode: 61, weatherLabel: 'Lluvia ligera' },
-        { date: '2026-09-23', dayName: 'Mié', maxTemp: 15, minTemp: 7, rainProb: 20, weatherCode: 1, weatherLabel: 'Mayormente despejado' },
-        { date: '2026-09-24', dayName: 'Jue', maxTemp: 17, minTemp: 8, rainProb: 15, weatherCode: 0, weatherLabel: 'Despejado' }
-      ],
-      wetlandAlerts: fallbackAlerts
-    };
+    throw error;
   }
 }

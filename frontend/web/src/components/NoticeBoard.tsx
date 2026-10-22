@@ -68,7 +68,9 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
 
   // Instagram interactions state
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
-  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(storageService.getSavedNoticeIds().map(id => [id, true]))
+  );
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({
     'not-1': 142,
     'not-2': 98,
@@ -126,7 +128,8 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
   };
 
   const toggleSave = (id: string) => {
-    setSavedPosts(prev => ({ ...prev, [id]: !prev[id] }));
+    const saved = storageService.toggleSavedNotice(id);
+    setSavedPosts(Object.fromEntries(saved.map(savedId => [savedId, true])));
   };
 
   const handleAddComment = (noticeId: string, e: React.FormEvent) => {

@@ -17,6 +17,7 @@ import {
   WAZE_LIVE_ALERTS,
   INITIAL_WETLAND_EVENTS,
   POINTS_OF_INTEREST,
+  resolveRouteId,
   INITIAL_SPECIES,
   INITIAL_SPONSOR_ADS,
   INITIAL_MODERATION_TICKETS
@@ -35,7 +36,8 @@ const STORAGE_KEYS = {
   DONATIONS: 'angachilla_donations',
   AD_FREE: 'angachilla_ad_free_status',
   SPONSOR_ADS: 'angachilla_sponsor_ads',
-  MODERATION_TICKETS: 'angachilla_moderation_tickets'
+  MODERATION_TICKETS: 'angachilla_moderation_tickets',
+  SAVED_NOTICES: 'angachilla_saved_notices'
 };
 
 class StorageService {
@@ -226,6 +228,25 @@ class StorageService {
   }
 
   // --- Scanned QR Badges ---
+  // --- Saved notices (bookmark on the home feed, listed in the profile) ---
+  getSavedNoticeIds(): string[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_NOTICES) ?? '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  toggleSavedNotice(id: string): string[] {
+    const current = this.getSavedNoticeIds();
+    const updated = current.includes(id) ? current.filter(x => x !== id) : [id, ...current];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.SAVED_NOTICES, JSON.stringify(updated));
+    }
+    return updated;
+  }
+
   getScannedQRs(): string[] {
     if (typeof window === 'undefined') return [];
     const stored = localStorage.getItem(STORAGE_KEYS.SCANNED_QRS);
@@ -298,7 +319,7 @@ class StorageService {
   }
 
   getEventsByRoute(routeId: string): WetlandEvent[] {
-    return this.getEvents().filter(e => e.routeId === routeId);
+    return this.getEvents().filter(e => resolveRouteId(e.routeId) === routeId);
   }
 
   toggleRegisterEvent(eventId: string): { isRegistered: boolean; newCount: number } {
@@ -415,11 +436,21 @@ class StorageService {
       return INITIAL_SPECIES;
     }
     try {
-      const parsed: Species[] = JSON.parse(stored);
+      const stale: Species[] = JSON.parse(stored);
+      // Replace the old placeholder Unsplash photos with the real species photos
+      let changed = false;
+      const parsed = stale.map(s => {
+        const initial = INITIAL_SPECIES.find(i => i.id === s.id);
+        if (initial && s.image.startsWith('https://images.unsplash.com/')) {
+          changed = true;
+          return { ...s, image: initial.image, imageCredit: initial.imageCredit };
+        }
+        return s;
+      });
       // Merge new initial species (like newly added fungi) if not yet in stored list
       const existingIds = new Set(parsed.map(s => s.id));
       const missing = INITIAL_SPECIES.filter(s => !existingIds.has(s.id));
-      if (missing.length > 0) {
+      if (missing.length > 0 || changed) {
         const merged = [...parsed, ...missing];
         localStorage.setItem(STORAGE_KEYS.SPECIES, JSON.stringify(merged));
         return merged;

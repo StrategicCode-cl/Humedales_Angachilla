@@ -35,6 +35,8 @@ interface AppContextValue {
   openAuth: () => void;
   openDonations: () => void;
   openQRWithCode: (code: string) => void;
+  openQR: () => void;
+  logout: () => void;
   goToMapLocation: (coords: [number, number], routeId?: string) => void;
   mapTargetCoordinates: [number, number] | null;
   mapTargetRouteId: string | null;
@@ -58,7 +60,7 @@ const instagramNavItems = [
   { id: 'avisos', label: 'Inicio', icon: Home },
   { id: 'mapa', label: 'Mapa & GPS', icon: Compass },
   { id: 'crear', label: 'Crear', icon: Plus, isAction: true },
-  { id: 'eventos', label: 'Eventos', icon: Calendar },
+  { id: 'eventos', label: 'Calendario', icon: Calendar },
   { id: 'galeria', label: 'Pines', icon: Pin },
 ];
 
@@ -115,6 +117,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     openAuth: () => setIsAuthOpen(true),
     openDonations: () => setIsDonationOpen(true),
     openQRWithCode: handleOpenQRWithCode,
+    openQR: () => {
+      setPreselectedQRCode(null);
+      setIsQROpen(true);
+    },
+    logout: handleLogout,
     goToMapLocation: handleGoToMapLocation,
     mapTargetCoordinates: targetMapCoordinates,
     mapTargetRouteId: targetMapRouteId,

@@ -1,24 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  Search,
-  Volume2,
-  MapPin,
-  Sparkles,
-  Info,
-  Filter,
-  Layers,
-  Leaf,
-  Bird,
-  ShieldAlert,
-  ChevronRight,
-  X,
-  ExternalLink,
-  Globe
-} from 'lucide-react';
-import { Species, SpeciesCategory } from '../types';
-import { INITIAL_SPECIES } from '../data/mockData';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Search, Volume2, MapPin, X, ExternalLink } from 'lucide-react';
+import { ConservationStatus, Species, SpeciesCategory } from '../types';
 import { soundService } from '../services/soundService';
 import { storageService } from '../services/storageService';
 
@@ -26,27 +10,102 @@ interface SpeciesCatalogProps {
   onGoToMapHabitat?: (coords: [number, number]) => void;
 }
 
+const CATEGORY_LABELS: Record<SpeciesCategory, string> = {
+  ave_acuatica: 'Aves acuáticas',
+  ave_bosque: 'Aves de bosque',
+  mamifero: 'Mamíferos',
+  anfibio: 'Anfibios',
+  hongo: 'Hongos',
+  arbol_arbusto: 'Árboles nativos',
+  planta_acuatica: 'Plantas acuáticas',
+};
+
+// Fauna first: the catalog is mainly visited to see the animals
+const CATEGORY_ORDER: SpeciesCategory[] = [
+  'ave_acuatica',
+  'ave_bosque',
+  'mamifero',
+  'anfibio',
+  'hongo',
+  'arbol_arbusto',
+  'planta_acuatica',
+];
+
+const FAUNA: SpeciesCategory[] = ['ave_acuatica', 'ave_bosque', 'mamifero', 'anfibio'];
+
+const GROUPS: { id: string; title: string; text: string; categories: SpeciesCategory[] }[] = [
+  {
+    id: 'aves',
+    title: 'Aves del humedal',
+    text: 'Viven entre la totora, los canales y el bosque de la orilla. Varias se reconocen antes por el canto que por la vista.',
+    categories: ['ave_acuatica', 'ave_bosque'],
+  },
+  {
+    id: 'mamiferos-anfibios',
+    title: 'Mamíferos y anfibios',
+    text: 'Más difíciles de ver: hay que caminar en silencio por las pasarelas y mirar el agua y la hojarasca.',
+    categories: ['mamifero', 'anfibio'],
+  },
+  {
+    id: 'hongos',
+    title: 'Hongos del bosque',
+    text: 'Crecen con la humedad del bosque valdiviano, sobre troncos, ramas y hojarasca.',
+    categories: ['hongo'],
+  },
+  {
+    id: 'flora',
+    title: 'Árboles y plantas',
+    text: 'El hualve de pitras y canelos y los totorales dan refugio y alimento al resto de las especies.',
+    categories: ['arbol_arbusto', 'planta_acuatica'],
+  },
+];
+
+const STATUS_DOT: Record<ConservationStatus, string> = {
+  'En Peligro Crítico': 'bg-red-700',
+  'En Peligro': 'bg-red-500',
+  'Vulnerable': 'bg-amber-500',
+  'Casi Amenazada': 'bg-yellow-400',
+  'Preocupación Menor': 'bg-emerald-500',
+};
+
+const GRID_COLS: Record<number, string> = {
+  1: 'lg:grid-cols-2',
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+};
+
+const noopSubscribe = () => () => {};
+
+function dayOfYear(date: Date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date.getTime() - start.getTime()) / 86_400_000);
+}
+
+const StatusLabel: React.FC<{ status: ConservationStatus }> = ({ status }) => (
+  <span className="inline-flex items-center gap-2 text-base text-stone-700">
+    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_DOT[status]}`} aria-hidden="true" />
+    {status}
+  </span>
+);
+
 export const SpeciesCatalog: React.FC<SpeciesCatalogProps> = ({ onGoToMapHabitat }) => {
   const [speciesList] = useState<Species[]>(() => storageService.getSpecies());
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<SpeciesCategory | 'all'>('all');
   const [activeSpecies, setActiveSpecies] = useState<Species | null>(null);
   const [playingKey, setPlayingKey] = useState<string | null>(null);
+  // The featured species changes once a day; read on the client so the server render stays stable
+  const day = useSyncExternalStore(noopSubscribe, () => dayOfYear(new Date()), () => null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  const categories = [
-    { id: 'all', label: 'Todas las Especies', count: speciesList.length },
-    { id: 'ave_acuatica', label: 'Aves Acuáticas', count: speciesList.filter(s => s.category === 'ave_acuatica').length },
-    { id: 'ave_bosque', label: 'Aves de Bosque', count: speciesList.filter(s => s.category === 'ave_bosque').length },
-    { id: 'hongo', label: '🍄 Fungi & Hongos', count: speciesList.filter(s => s.category === 'hongo').length },
-    { id: 'mamifero', label: 'Mamíferos', count: speciesList.filter(s => s.category === 'mamifero').length },
-    { id: 'anfibio', label: 'Anfibios', count: speciesList.filter(s => s.category === 'anfibio').length },
-    { id: 'arbol_arbusto', label: 'Árboles Nativos', count: speciesList.filter(s => s.category === 'arbol_arbusto').length },
-    { id: 'planta_acuatica', label: 'Plantas Acuáticas', count: speciesList.filter(s => s.category === 'planta_acuatica').length },
-  ];
+  const fauna = speciesList.filter(s => FAUNA.includes(s.category));
+  const featuredPool = fauna.length > 0 ? fauna : speciesList;
+  const featured = featuredPool.length > 0 ? featuredPool[(day ?? 0) % featuredPool.length] : null;
 
+  const q = searchQuery.trim().toLowerCase();
+  const isBrowsingAll = selectedCategory === 'all' && q === '';
   const filteredSpecies = speciesList.filter(species => {
     const matchesCategory = selectedCategory === 'all' || species.category === selectedCategory;
-    const q = searchQuery.toLowerCase();
     const matchesSearch =
       species.commonName.toLowerCase().includes(q) ||
       species.scientificName.toLowerCase().includes(q) ||
@@ -54,6 +113,43 @@ export const SpeciesCatalog: React.FC<SpeciesCatalogProps> = ({ onGoToMapHabitat
       species.habitat.toLowerCase().includes(q);
     return matchesCategory && matchesSearch;
   });
+
+  const categories = CATEGORY_ORDER.map(id => ({
+    id,
+    label: CATEGORY_LABELS[id],
+    count: speciesList.filter(s => s.category === id).length,
+  })).filter(c => c.count > 0);
+
+  const credited = speciesList.filter(s => s.imageCredit);
+
+  // Entrance for each block as it scrolls into view
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    root.classList.add('reveal-ready');
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-shown');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { rootMargin: '0px 0px -8% 0px' }
+    );
+    root.querySelectorAll('[data-reveal]:not(.is-shown)').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, [selectedCategory, searchQuery, day]);
+
+  useEffect(() => {
+    if (!activeSpecies) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveSpecies(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeSpecies]);
 
   const handlePlaySound = (soundKey: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -64,341 +160,439 @@ export const SpeciesCatalog: React.FC<SpeciesCatalogProps> = ({ onGoToMapHabitat
     }, 1500);
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
-              Biodiversidad de la Selva Valdiviana
-            </span>
-            <span className="text-xs text-stone-500 font-medium">Humedal Angachilla</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-stone-900 mt-1 font-display">
-            Catálogo Oficial de Flora y Fauna
-          </h1>
-          <p className="text-sm text-stone-600 max-w-2xl mt-1 leading-relaxed">
-            Descubre las especies nativas que habitan en los hualves, canales y bosques siempreverdes del Santuario de la Naturaleza. Escucha sus cantos y conoce su estado de conservación.
-          </p>
-        </div>
+  const reveal = (index: number) => ({
+    'data-reveal': '',
+    style: { '--reveal-delay': `${Math.min(index, 6) * 70}ms` } as React.CSSProperties,
+  });
 
-        {/* Search Bar */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre común, científico o mapudungun..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white border border-stone-300 text-stone-800 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+  const renderPlate = (species: Species, index: number, large = false) => (
+    <article
+      key={species.id}
+      {...reveal(index)}
+      className={`group flex flex-col ${large ? 'sm:col-span-2 lg:row-span-2' : ''}`}
+    >
+      <div className={`relative overflow-hidden bg-stone-200 ${large ? 'aspect-[4/3] lg:aspect-auto lg:flex-1 lg:min-h-[420px]' : 'aspect-[4/3]'}`}>
+        <button
+          type="button"
+          onClick={() => setActiveSpecies(species)}
+          className="absolute inset-0 w-full h-full focus-visible:outline-3 focus-visible:outline-offset-[-3px] focus-visible:outline-emerald-500"
+          aria-label={`Ver ficha de ${species.commonName}`}
+        >
+          <img
+            src={species.image}
+            alt={species.commonName}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs"
-            >
-              ✕
-            </button>
-          )}
+        </button>
+        {species.soundKey && (
+          <button
+            type="button"
+            onClick={e => handlePlaySound(species.soundKey!, e)}
+            aria-label={`Escuchar ${species.soundLabel || 'canto'} de ${species.commonName}`}
+            className={`absolute bottom-3 right-3 w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-90 hover:scale-105 ${
+              playingKey === species.soundKey
+                ? 'bg-emerald-500 text-white'
+                : 'bg-white text-emerald-900 hover:bg-emerald-50'
+            }`}
+          >
+            <Volume2 className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+      <div className="pt-4">
+        <h3 className={`font-bold text-stone-950 leading-tight tracking-tight ${large ? 'text-3xl' : 'text-xl'}`}>
+          <button
+            type="button"
+            onClick={() => setActiveSpecies(species)}
+            className="text-left hover:text-emerald-800 transition-colors"
+          >
+            {species.commonName}
+          </button>
+        </h3>
+        <p className="mt-1 text-base text-stone-700">
+          {species.mapudungunName && <span>{species.mapudungunName} · </span>}
+          <span className="italic">{species.scientificName}</span>
+        </p>
+        {large && (
+          <p className="mt-3 text-base text-stone-800 leading-relaxed max-w-xl">{species.description}</p>
+        )}
+        <div className="mt-2">
+          <StatusLabel status={species.conservationStatus} />
         </div>
       </div>
+    </article>
+  );
 
-      {/* --- INTEGRACIÓN CON PLATAFORMAS EXTERNAS: eBird & iNaturalist (PDF REUNIÓN 15-SEPT-2026) --- */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 text-stone-900 shadow-xs border border-stone-200/90 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-center shrink-0">
-            <Globe className="w-5 h-5 text-emerald-700" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
-                Ciencia Ciudadana
-              </span>
-              <span className="text-xs text-stone-500 font-medium">Bases de datos biológicos abiertas</span>
+  const renderGrid = (list: Species[], allowLarge: boolean) => {
+    // A large first plate only when the small ones close the rows beside and below it
+    const withLarge = allowLarge && list.length >= 5 && (list.length - 5) % 4 === 0;
+    const cols = withLarge || list.length > 3 ? 'lg:grid-cols-4' : GRID_COLS[list.length];
+    return (
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${cols} gap-x-6 gap-y-10`}>
+        {list.map((s, i) => renderPlate(s, i, withLarge && i === 0))}
+      </div>
+    );
+  };
+
+  return (
+    <div ref={rootRef} className="max-w-7xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-24">
+      {/* First screen: title and the species of the day */}
+      <header>
+        <h1
+          {...reveal(0)}
+          className="font-black text-stone-950 tracking-[-0.035em] leading-[0.95] text-[clamp(2.5rem,5vw,4.75rem)]"
+        >
+          Quién vive en el Angachilla
+        </h1>
+
+        {/* Phone order: intro, photo, details. Desktop: text on the left, photo on the right */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-x-12 lg:gap-y-10">
+          <p {...reveal(1)} className="lg:col-span-5 lg:row-start-1 text-lg sm:text-xl text-stone-800 leading-relaxed max-w-lg">
+            {speciesList.length} especies que puedes ver y escuchar en este humedal urbano de Valdivia: aves,
+            mamíferos, anfibios, hongos y árboles nativos.
+          </p>
+
+          {featured && (
+            <figure {...reveal(1)} className="lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:row-span-2">
+              <button
+                type="button"
+                onClick={() => setActiveSpecies(featured)}
+                className="block w-full aspect-[4/3] overflow-hidden bg-stone-200"
+                aria-label={`Ver ficha de ${featured.commonName}`}
+              >
+                <img
+                  src={featured.image}
+                  alt={featured.commonName}
+                  className="w-full h-full object-cover slow-drift"
+                />
+              </button>
+              {featured.imageCredit && (
+                <figcaption className="hidden lg:block mt-2 text-sm text-stone-600">
+                  {featured.commonName}. Foto: {featured.imageCredit.author}, {featured.imageCredit.license}
+                </figcaption>
+              )}
+            </figure>
+          )}
+
+          {featured && (
+            <div {...reveal(2)} className="lg:col-span-5 lg:row-start-2 lg:self-end">
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-stone-950 leading-none">
+                Especie de hoy: {featured.commonName}
+              </h2>
+              <p className="mt-2 text-base text-stone-700">
+                {featured.mapudungunName && <span>{featured.mapudungunName} · </span>}
+                <span className="italic">{featured.scientificName}</span>
+              </p>
+              <p className="mt-4 text-base text-stone-800 leading-relaxed max-w-lg">{featured.description}</p>
+              <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+                {featured.soundKey && (
+                  <button
+                    type="button"
+                    onClick={() => handlePlaySound(featured.soundKey!)}
+                    className={`inline-flex items-center gap-2 px-5 py-3 rounded-full text-base font-bold transition-transform active:scale-95 ${
+                      playingKey === featured.soundKey
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-800 hover:bg-emerald-700 text-white'
+                    }`}
+                  >
+                    <Volume2 className="w-5 h-5" />
+                    Escuchar su canto
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveSpecies(featured)}
+                  className="text-base font-bold text-emerald-900 underline underline-offset-4 decoration-2 decoration-emerald-300 hover:decoration-emerald-700 transition-colors"
+                >
+                  Ver ficha completa
+                </button>
+              </div>
             </div>
-            <h3 className="text-sm sm:text-base font-extrabold text-stone-900 mt-0.5 font-display">
-              Registros en Tiempo Real eBird & iNaturalist
-            </h3>
-            <p className="text-xs text-stone-600 mt-0.5 max-w-xl">
-              Explora avistamientos comunitarios registrados en el Santuario Angachilla o sube tus propios registros ornitológicos.
-            </p>
-          </div>
+          )}
         </div>
+      </header>
 
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Filters */}
+      <section className="mt-20 sm:mt-28" aria-labelledby="explorar-titulo">
+        <h2 id="explorar-titulo" className="sr-only">
+          Explorar especies
+        </h2>
+        <div className="flex flex-col-reverse gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              aria-pressed={selectedCategory === 'all'}
+              className={`px-4 py-2 rounded-full text-base font-semibold whitespace-nowrap transition-colors active:scale-95 ${
+                selectedCategory === 'all'
+                  ? 'bg-emerald-800 text-white'
+                  : 'bg-stone-200/70 hover:bg-stone-200 text-stone-800'
+              }`}
+            >
+              Todas <span className="opacity-70 tabular-nums">{speciesList.length}</span>
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                aria-pressed={selectedCategory === cat.id}
+                className={`px-4 py-2 rounded-full text-base font-semibold whitespace-nowrap transition-colors active:scale-95 ${
+                  selectedCategory === cat.id
+                    ? 'bg-emerald-800 text-white'
+                    : 'bg-stone-200/70 hover:bg-stone-200 text-stone-800'
+                }`}
+              >
+                {cat.label} <span className="opacity-70 tabular-nums">{cat.count}</span>
+              </button>
+            ))}
+          </div>
+
+          <label className="relative block w-full sm:max-w-md">
+            <span className="sr-only">Buscar especie</span>
+            <Search className="w-5 h-5 text-stone-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="search"
+              placeholder="Chucao, Wañke, Drimys…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-10 py-3 rounded-full bg-white border border-stone-300 text-base text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Borrar búsqueda"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-stone-900"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </label>
+        </div>
+      </section>
+
+      {/* Species */}
+      {filteredSpecies.length === 0 ? (
+        <div className="mt-16 py-16 px-6 bg-stone-100 text-center">
+          <h2 className="text-2xl font-bold text-stone-950">No encontramos esa especie</h2>
+          <p className="mt-2 text-base text-stone-700">
+            Prueba con su nombre común, científico o en mapudungun, como “Chucao”, “Wañke” o “Drimys”.
+          </p>
+        </div>
+      ) : isBrowsingAll ? (
+        GROUPS.map(group => {
+          const list = speciesList.filter(s => group.categories.includes(s.category));
+          if (list.length === 0) return null;
+          return (
+            <section key={group.id} className="mt-16 sm:mt-24" aria-labelledby={`grupo-${group.id}`}>
+              <div {...reveal(0)} className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-12 items-end mb-8">
+                <h2
+                  id={`grupo-${group.id}`}
+                  className="lg:col-span-5 text-3xl sm:text-4xl font-black tracking-tight text-stone-950 leading-none"
+                >
+                  {group.title}
+                </h2>
+                <p className="lg:col-span-7 text-base sm:text-lg text-stone-700 leading-relaxed max-w-2xl">
+                  {group.text}
+                </p>
+              </div>
+              {renderGrid(list, true)}
+            </section>
+          );
+        })
+      ) : (
+        <section className="mt-12" aria-labelledby="resultados-titulo">
+          <h2 id="resultados-titulo" className="mb-8 text-2xl font-bold text-stone-950">
+            {selectedCategory !== 'all' ? CATEGORY_LABELS[selectedCategory] : 'Resultados'}{' '}
+            <span className="text-stone-600 font-semibold tabular-nums">{filteredSpecies.length}</span>
+          </h2>
+          {renderGrid(filteredSpecies, false)}
+        </section>
+      )}
+
+      {/* Citizen science: eBird & iNaturalist (PDF reunión 15-sept-2026) */}
+      <section
+        {...reveal(0)}
+        className="mt-24 sm:mt-32 -mx-4 sm:mx-0 px-6 sm:px-12 py-14 sm:py-16 bg-emerald-950 text-white grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-end"
+        aria-labelledby="ciencia-titulo"
+      >
+        <div className="lg:col-span-7">
+          <h2 id="ciencia-titulo" className="text-3xl sm:text-5xl font-black tracking-tight leading-none">
+            ¿Viste o escuchaste algo?
+          </h2>
+          <p className="mt-5 text-lg text-emerald-50 leading-relaxed max-w-xl">
+            Sube tu registro a eBird o iNaturalist. Cada avistamiento en el Angachilla ayuda a monitorear las especies
+            del humedal.
+          </p>
+        </div>
+        <div className="lg:col-span-5 flex flex-wrap items-center gap-x-6 gap-y-4 lg:justify-end">
           <a
             href="https://ebird.org/hotspot/L11417032"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition-all shadow-xs active:scale-95"
-            title="Ver avistamientos del Santuario Angachilla en eBird"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white text-emerald-950 text-base font-bold hover:bg-emerald-100 transition-colors active:scale-95"
           >
-            <Bird className="w-4 h-4 text-amber-800" />
-            <span>Hotspot eBird</span>
-            <ExternalLink className="w-3 h-3 text-amber-700" />
+            Hotspot en eBird
+            <ExternalLink className="w-4 h-4" />
           </a>
           <a
             href="https://www.inaturalist.org/places/chile"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 transition-all shadow-xs active:scale-95"
-            title="Explorar flora, fauna y hongos en iNaturalist"
+            className="inline-flex items-center gap-2 text-base font-bold text-white underline underline-offset-4 decoration-2 decoration-emerald-400 hover:decoration-white"
           >
-            <Leaf className="w-4 h-4 text-emerald-700" />
-            <span>iNaturalist</span>
-            <ExternalLink className="w-3 h-3 text-emerald-700" />
+            Registrar en iNaturalist
+            <ExternalLink className="w-4 h-4" />
           </a>
         </div>
-      </div>
+      </section>
 
-      {/* Category Pills Filter */}
-      <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-1.5 ${
-              selectedCategory === cat.id
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
-            }`}
-          >
-            <span>{cat.label}</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                selectedCategory === cat.id
-                  ? 'bg-emerald-800 text-emerald-100'
-                  : 'bg-stone-200 text-stone-600'
-              }`}
-            >
-              {cat.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Species Grid */}
-      {filteredSpecies.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-stone-200 shadow-sm">
-          <Leaf className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-stone-800 font-display">
-            No se encontraron especies
-          </h3>
-          <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-            Intenta con otros términos de búsqueda como “Chucao”, “Cisne”, “Canelo” o “Pitra”.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredSpecies.map(species => (
-            <div
-              key={species.id}
-              onClick={() => setActiveSpecies(species)}
-              className="group bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all duration-300 cursor-pointer flex flex-col"
-            >
-              {/* Photo Banner */}
-              <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
-                <img
-                  src={species.image}
-                  alt={species.commonName}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-stone-900/60 via-transparent to-transparent" />
-
-                {/* Conservation Status Badge */}
-                <div className="absolute top-3 left-3">
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${species.statusColor}`}
+      {/* Photo credits (required by the CC BY / BY-SA licences) */}
+      {credited.length > 0 && (
+        <footer className="mt-12 text-sm text-stone-600 leading-relaxed">
+          <details>
+            <summary className="cursor-pointer w-fit hover:text-stone-900">
+              Fotografías de Wikimedia Commons con licencias libres. Ver autores y licencias
+            </summary>
+            <ul className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1">
+              {credited.map(s => (
+                <li key={s.id}>
+                  {s.commonName}:{' '}
+                  <a
+                    href={s.imageCredit!.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-stone-900"
                   >
-                    {species.conservationStatus}
-                  </span>
-                </div>
-
-                {/* Sound Quick Player Button */}
-                {species.soundKey && (
-                  <button
-                    onClick={e => handlePlaySound(species.soundKey!, e)}
-                    title={`Escuchar canto: ${species.soundLabel || species.commonName}`}
-                    className={`absolute top-3 right-3 p-2 rounded-xl backdrop-blur-md shadow-md transition-transform active:scale-95 ${
-                      playingKey === species.soundKey
-                        ? 'bg-teal-500 text-white animate-pulse'
-                        : 'bg-stone-900/80 hover:bg-stone-900 text-teal-300 border border-teal-500/30'
-                    }`}
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
-                )}
-
-                {/* Name on Bottom */}
-                <div className="absolute bottom-3 left-3 right-3 text-white">
-                  <h3 className="text-base font-extrabold font-display leading-tight drop-shadow-sm">
-                    {species.commonName}
-                  </h3>
-                  {species.mapudungunName && (
-                    <span className="text-[11px] text-emerald-300 font-semibold italic">
-                      {species.mapudungunName} (Mapudungun)
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Body */}
-              <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div>
-                  <p className="text-xs font-mono text-stone-500 italic">
-                    {species.scientificName}
-                  </p>
-                  <p className="text-xs text-stone-600 mt-2 line-clamp-2 leading-relaxed">
-                    {species.description}
-                  </p>
-                </div>
-
-                <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-emerald-700 group-hover:text-emerald-800">
-                  <span>Ver ficha completa y hábitat</span>
-                  <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+                    {s.imageCredit!.author}
+                  </a>{' '}
+                  ({s.imageCredit!.license})
+                </li>
+              ))}
+            </ul>
+          </details>
+        </footer>
       )}
 
-      {/* --- SPECIES DETAIL MODAL --- */}
+      {/* Species detail dialog */}
       {activeSpecies && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
-            {/* Modal Image Header */}
-            <div className="relative aspect-video sm:aspect-[21/9] bg-stone-900 overflow-hidden">
-              <img
-                src={activeSpecies.image}
-                alt={activeSpecies.commonName}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/40 to-transparent" />
-
+        <div
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4 bg-stone-950/80"
+          onClick={() => setActiveSpecies(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ficha-titulo"
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden"
+          >
+            <div className="relative aspect-[16/10] sm:aspect-[16/9] bg-stone-900 overflow-hidden shrink-0">
+              <img src={activeSpecies.image} alt={activeSpecies.commonName} className="w-full h-full object-cover" />
               <button
+                type="button"
                 onClick={() => setActiveSpecies(null)}
-                className="absolute top-3 right-3 p-2 rounded-full bg-stone-900/70 hover:bg-stone-900 text-white text-sm"
+                aria-label="Cerrar ficha"
+                className="absolute top-3 right-3 w-11 h-11 rounded-full bg-white text-stone-900 flex items-center justify-center hover:bg-stone-100 active:scale-90 transition-transform"
               >
                 <X className="w-5 h-5" />
               </button>
-
-              <div className="absolute bottom-4 left-4 right-4 text-white">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm ${activeSpecies.statusColor}`}
-                  >
-                    {activeSpecies.conservationStatus}
-                  </span>
-                  {activeSpecies.soundKey && (
-                    <button
-                      onClick={() => handlePlaySound(activeSpecies.soundKey!)}
-                      className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-teal-500 hover:bg-teal-400 text-stone-950 text-xs font-bold shadow transition-transform active:scale-95"
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                      <span>Reproducir Canto</span>
-                    </button>
-                  )}
-                </div>
-                <h2 className="text-xl sm:text-2xl font-black font-display">
-                  {activeSpecies.commonName}
-                </h2>
-                <div className="flex items-center gap-3 text-xs text-stone-300">
-                  <span className="italic font-mono">{activeSpecies.scientificName}</span>
-                  {activeSpecies.mapudungunName && (
-                    <span className="text-emerald-300 font-medium">
-                      • {activeSpecies.mapudungunName} (Mapudungun)
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
 
-            {/* Modal Details Content */}
-            <div className="p-6 overflow-y-auto space-y-4">
-              {/* Habitat */}
-              <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
-                  Hábitat en Humedal Angachilla
-                </span>
-                <p className="text-xs text-stone-700 mt-1 leading-relaxed">
-                  {activeSpecies.habitat}
+            <div className="p-6 sm:p-8 overflow-y-auto">
+              {activeSpecies.imageCredit && (
+                <p className="text-sm text-stone-600">
+                  Foto:{' '}
+                  <a
+                    href={activeSpecies.imageCredit.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-stone-900"
+                  >
+                    {activeSpecies.imageCredit.author}
+                  </a>
+                  , {activeSpecies.imageCredit.license}
                 </p>
+              )}
+              <h2 id="ficha-titulo" className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-stone-950 leading-none">
+                {activeSpecies.commonName}
+              </h2>
+              <p className="mt-2 text-lg text-stone-700">
+                {activeSpecies.mapudungunName && <span>{activeSpecies.mapudungunName} en mapudungun · </span>}
+                <span className="italic">{activeSpecies.scientificName}</span>
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+                <StatusLabel status={activeSpecies.conservationStatus} />
+                {activeSpecies.soundKey && (
+                  <button
+                    type="button"
+                    onClick={() => handlePlaySound(activeSpecies.soundKey!)}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-base font-bold transition-transform active:scale-95 ${
+                      playingKey === activeSpecies.soundKey
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-800 hover:bg-emerald-700 text-white'
+                    }`}
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    Escuchar {activeSpecies.soundLabel ? activeSpecies.soundLabel.toLowerCase() : 'canto'}
+                  </button>
+                )}
               </div>
 
-              {/* Description */}
-              <div>
-                <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
-                  Características & Comportamiento
-                </h4>
-                <p className="text-xs sm:text-sm text-stone-600 mt-1.5 leading-relaxed">
-                  {activeSpecies.description}
-                </p>
+              <p className="mt-6 text-base sm:text-lg text-stone-800 leading-relaxed">{activeSpecies.description}</p>
+
+              <div className="mt-6 p-5 bg-stone-100">
+                <h3 className="text-base font-bold text-stone-950">Dónde vive en el Angachilla</h3>
+                <p className="mt-1 text-base text-stone-800 leading-relaxed">{activeSpecies.habitat}</p>
               </div>
 
-              {/* Fun Fact / Cultural Significance */}
-              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-amber-950">
-                <div className="flex items-center space-x-2 text-amber-800 mb-1">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider">
-                    Dato Curioso & Valor Cultural Valdiviano
-                  </h4>
-                </div>
-                <p className="text-xs text-amber-900/90 leading-relaxed">
-                  {activeSpecies.funFact}
-                </p>
+              <div className="mt-3 p-5 bg-amber-50">
+                <h3 className="text-base font-bold text-amber-950">Dato curioso</h3>
+                <p className="mt-1 text-base text-amber-950 leading-relaxed">{activeSpecies.funFact}</p>
               </div>
 
-              {/* External Monitoring: eBird & iNaturalist (PDF 15-Sept-2026) */}
               {(activeSpecies.ebirdUrl || activeSpecies.inaturalistUrl) && (
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-2">
-                    Monitoreo en Plataformas Científicas
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {activeSpecies.ebirdUrl && (
-                      <a
-                        href={activeSpecies.ebirdUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold border border-amber-300 transition-colors shadow-xs"
-                      >
-                        <Bird className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Ver registros en eBird</span>
-                        <ExternalLink className="w-3 h-3 text-amber-600" />
-                      </a>
-                    )}
-                    {activeSpecies.inaturalistUrl && (
-                      <a
-                        href={activeSpecies.inaturalistUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-bold border border-emerald-300 transition-colors shadow-xs"
-                      >
-                        <Leaf className="w-3.5 h-3.5 text-emerald-700" />
-                        <span>Ver taxonomía en iNaturalist</span>
-                        <ExternalLink className="w-3 h-3 text-emerald-600" />
-                      </a>
-                    )}
-                  </div>
+                <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3">
+                  {activeSpecies.ebirdUrl && (
+                    <a
+                      href={activeSpecies.ebirdUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-base font-bold text-emerald-900 underline underline-offset-4 decoration-2 decoration-emerald-300 hover:decoration-emerald-700"
+                    >
+                      Registros en eBird
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                  {activeSpecies.inaturalistUrl && (
+                    <a
+                      href={activeSpecies.inaturalistUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-base font-bold text-emerald-900 underline underline-offset-4 decoration-2 decoration-emerald-300 hover:decoration-emerald-700"
+                    >
+                      Ficha en iNaturalist
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
                 </div>
               )}
 
-              {/* Action Button: Locate on Map */}
               {activeSpecies.approxLocation && onGoToMapHabitat && (
-                <div className="pt-2">
-                  <button
-                    onClick={() => {
-                      onGoToMapHabitat(activeSpecies.approxLocation!);
-                      setActiveSpecies(null);
-                    }}
-                    className="w-full py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-950/20 transition-transform active:scale-98"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    <span>Ver hábitat aproximado en el mapa interactivo</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onGoToMapHabitat(activeSpecies.approxLocation!);
+                    setActiveSpecies(null);
+                  }}
+                  className="mt-8 w-full py-4 px-4 rounded-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-base flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+                >
+                  <MapPin className="w-5 h-5" />
+                  Ver dónde encontrarlo en el mapa
+                </button>
               )}
             </div>
           </div>

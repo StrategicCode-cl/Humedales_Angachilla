@@ -174,20 +174,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-stone-200 py-2 z-50 text-xs text-stone-900 animate-in fade-in zoom-in-95 duration-150"
                   onClick={() => setShowUserMenu(false)}
                 >
-                  {/* User Profile Summary */}
-                  <div className="px-4 py-2.5 border-b border-stone-100">
-                    <p className="font-extrabold text-stone-900 truncate font-display text-sm">
-                      {currentUser ? currentUser.name : 'Visitante del Santuario'}
+                  {/* Profile summary, links to the profile page */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentTab('perfil')}
+                    className="w-full px-4 py-2.5 border-b border-stone-100 text-left hover:bg-stone-50 transition-colors"
+                  >
+                    <p className="font-semibold text-stone-900 truncate text-sm">
+                      {currentUser ? currentUser.name : 'Visitante'}
                     </p>
-                    <p className="text-stone-500 text-[11px] truncate">
-                      {currentUser ? currentUser.email : 'Acceso libre a la comunidad'}
+                    <p className="text-stone-600 text-xs truncate">
+                      {currentUser
+                        ? `${currentUser.email} · ${currentUser.role === 'admin' ? 'Guardaparques' : 'Visitante'}`
+                        : 'Sin sesión iniciada'}
                     </p>
-                    <div className="mt-1.5">
-                      <span className="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
-                        {currentUser?.role === 'admin' ? 'Guardaparques / Admin' : 'Comunidad Humedal'}
-                      </span>
-                    </div>
-                  </div>
+                    <p className="mt-1 text-xs font-semibold text-stone-900">Ver tu perfil ›</p>
+                  </button>
 
                   {/* Sanctuary Tools Group */}
                   <div className="px-3 py-1.5">

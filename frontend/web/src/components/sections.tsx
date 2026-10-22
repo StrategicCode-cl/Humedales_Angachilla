@@ -39,6 +39,10 @@ const SuggestionsPanel = dynamic(() => import('./SuggestionsPanel').then(m => m.
   ssr: false,
   loading: SectionLoading,
 });
+const ProfilePage = dynamic(() => import('./ProfilePage').then(m => m.ProfilePage), {
+  ssr: false,
+  loading: SectionLoading,
+});
 const AdminDashboard = dynamic(() => import('./AdminDashboard').then(m => m.AdminDashboard), {
   ssr: false,
   loading: SectionLoading,
@@ -126,4 +130,8 @@ export function AdminSection() {
   }
 
   return <AdminDashboard currentUser={app.currentUser} />;
+}
+
+export function PerfilSection() {
+  return <ProfilePage />;
 }

@@ -7,6 +7,7 @@ export const TAB_PATHS = {
   catalogo: '/especies',
   sugerencias: '/buzon',
   admin: '/admin',
+  perfil: '/perfil',
 } as const;
 
 export type TabId = keyof typeof TAB_PATHS;

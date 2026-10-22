@@ -7,6 +7,7 @@ import { WetlandEvent } from '../types';
 import { storageService } from '../services/storageService';
 import { pathForTab } from '../lib/tabs';
 import { useApp } from './AppShell';
+import { formatEventDateShort } from '../lib/eventDates';
 
 const quickLinks = [
   { id: 'mapa', label: 'Senderos y GPS', hint: 'Rutas, tótems y navegación', icon: Compass },
@@ -55,7 +56,7 @@ export const HomeSidebar: React.FC = () => {
                       </p>
                       <p className="text-[11px] text-stone-500 mt-0.5 flex items-center gap-1">
                         <Calendar className="w-3 h-3 text-emerald-700 shrink-0" />
-                        <span className="truncate">{evt.date}</span>
+                        <span className="truncate">{formatEventDateShort(evt.date)}</span>
                         <Clock className="w-3 h-3 text-emerald-700 shrink-0 ml-1" />
                         <span className="shrink-0">{evt.time}</span>
                       </p>
