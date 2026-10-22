@@ -53,5 +53,5 @@ export function formatEventDate(value: string, { withYear = true }: { withYear?:
 export function formatEventDateShort(value: string): string {
   const date = parseEventDate(value);
   if (!date) return value;
-  return date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
+  return date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 }

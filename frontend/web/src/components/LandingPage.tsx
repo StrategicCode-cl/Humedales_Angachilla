@@ -1,23 +1,20 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Compass,
-  QrCode,
-  BookOpen,
-  Calendar,
   Users,
-  ShieldCheck,
+  ChevronLeft,
   ChevronRight,
   Sparkles,
   LogIn,
   UserCheck,
-  Camera,
-  Play,
-  Pause
+  ArrowRight
 } from 'lucide-react';
-import { User } from '../types';
-import { resolveMediaUrl } from '../lib/api';
+import { User, WetlandEvent } from '../types';
+import { ecosistemaApi, resolveMediaUrl } from '../lib/api';
+import { HUMEDAL_ROUTES } from '../data/mockData';
+import { dateKey, eventDateKey, formatEventDateShort } from '../lib/eventDates';
 
 interface LandingPageProps {
   currentUser: User | null;
@@ -25,132 +22,147 @@ interface LandingPageProps {
   onOpenAuth: () => void;
 }
 
-// Carousel items mixing station trail photos and official species illustrations
-const CAROUSEL_ITEMS = [
-  {
-    type: 'station',
-    title: 'Estación 1: Placita de la Resistencia',
-    subtitle: 'Acceso principal y mirador del hualve',
-    imageUrl: '/api/media/slug/estacion-s1-foto-1',
-    badge: 'Sendero',
-  },
-  {
-    type: 'species',
-    title: 'Chucao (Scelorchilus rubecula)',
-    subtitle: 'Ave icónica del sotobosque valdiviano',
-    imageUrl: '/api/media/slug/sp-chucao',
-    badge: 'Fauna Nativa',
-  },
-  {
-    type: 'station',
-    title: 'Estación 2: Laguna de los Pinos',
-    subtitle: 'Refugio de anfibios y plantas acuáticas',
-    imageUrl: '/api/media/slug/estacion-s2-foto-1',
-    badge: 'Sendero',
-  },
-  {
-    type: 'species',
-    title: 'Siete Colores (Tachuris rubrigastra)',
-    subtitle: 'Joya alada de los totorales',
-    imageUrl: '/api/media/slug/sp-siete-colores',
-    badge: 'Ave de Totoral',
-  },
-  {
-    type: 'station',
-    title: 'Estación 3: Mirador Espejo del Angachilla',
-    subtitle: 'Vista panorámica al río y humedal',
-    imageUrl: '/api/media/slug/estacion-s3-foto-1',
-    badge: 'Mirador',
-  },
-  {
-    type: 'species',
-    title: 'Cisne de Cuello Negro (Cygnus melancoryphus)',
-    subtitle: 'Símbolo de los ríos y humedales de Valdivia',
-    imageUrl: '/api/media/slug/sp-cisne-cuello-negro',
-    badge: 'Fauna Protegida',
-  },
-  {
-    type: 'station',
-    title: 'Estación 4: Totoral del Santuario',
-    subtitle: 'Ecosistema de pajonales y nidificación',
-    imageUrl: '/api/media/slug/estacion-s4-foto-1',
-    badge: 'Sendero',
-  },
-  {
-    type: 'species',
-    title: 'Rana Grande Chilena (Calyptocephalella gayi)',
-    subtitle: 'Monumento natural y anfibio gigante',
-    imageUrl: '/api/media/slug/sp-rana-chilena',
-    badge: 'En Peligro (VU)',
-  },
-  {
-    type: 'station',
-    title: 'Estación 5: Bosque Los Canelos',
-    subtitle: 'Hualve de canelos, arrayanes, temus y pitras',
-    imageUrl: '/api/media/slug/estacion-s5-foto-1',
-    badge: 'Bosque Pantanoso',
-  },
-  {
-    type: 'species',
-    title: 'Martín Pescador (Megaceryle torquata)',
-    subtitle: 'Cazador experto en las orillas del río',
-    imageUrl: '/api/media/slug/sp-martin-pescador',
-    badge: 'Fauna Nativa',
-  },
-  {
-    type: 'station',
-    title: 'Estación 6: Vega de la Garza',
-    subtitle: 'Planicie de inundación y avistamiento',
-    imageUrl: '/api/media/slug/estacion-s6-foto-1',
-    badge: 'Sendero',
-  },
-  {
-    type: 'species',
-    title: 'Garza Cuca (Ardea cocoi)',
-    subtitle: 'La garza más grande de Chile',
-    imageUrl: '/api/media/slug/sp-garza-cuca',
-    badge: 'Fauna Nativa',
-  },
+type GalleryItem =
+  | { kind: 'station'; title: string; code: string; note: string; image: string }
+  | { kind: 'species'; title: string; scientific: string; note: string; image: string };
+
+// Station photographs alternate with the official species illustrations
+const GALLERY: GalleryItem[] = [
+  { kind: 'station', code: 'Estación 1', title: 'Mirador del Hualve', note: 'Restauración de bosque humedal y vista al pantano de Chequén.', image: '/api/media/slug/estacion-s1-foto-1' },
+  { kind: 'species', title: 'Cisne de Cuello Negro', scientific: 'Cygnus melancoryphus', note: 'Símbolo de los ríos y humedales de Valdivia.', image: '/api/media/slug/ilustracion-cisne-de-cuello-negro' },
+  { kind: 'station', code: 'Estación 2', title: 'Laguna de los Pinos', note: 'Laguna de anfibios y helechos costilla de vaca.', image: '/api/media/slug/estacion-s2-foto-1' },
+  { kind: 'species', title: 'Siete Colores', scientific: 'Tachuris rubrigastra', note: 'Pequeña ave que anida en los totorales.', image: '/api/media/slug/ilustracion-siete-colores' },
+  { kind: 'station', code: 'Estación 3', title: 'Mirador Espejo del Angachilla', note: 'Espejo de agua con cisnes, garzas, patos y coipos.', image: '/api/media/slug/estacion-s3-foto-1' },
+  { kind: 'species', title: 'Rana Grande Chilena', scientific: 'Calyptocephalella gayi', note: 'El anfibio más grande de Chile, vulnerable.', image: '/api/media/slug/ilustracion-rana-grande-chilena' },
+  { kind: 'station', code: 'Estación 4', title: 'Totoral del Santuario', note: 'Pajonal de batros, totoras y nidos colgantes.', image: '/api/media/slug/estacion-s4-foto-1' },
+  { kind: 'species', title: 'Martín Pescador', scientific: 'Megaceryle torquata', note: 'Caza peces desde las ramas sobre el estero.', image: '/api/media/slug/ilustracion-martin-pescador' },
+  { kind: 'station', code: 'Estación 5', title: 'Bosque Los Canelos', note: 'Bosque inundable de canelos, arrayanes, temus y pitras.', image: '/api/media/slug/estacion-s5-foto-1' },
+  { kind: 'species', title: 'Garza Cuca', scientific: 'Ardea cocoi', note: 'La garza más grande de Chile.', image: '/api/media/slug/ilustracion-garza-cuca' },
+  { kind: 'station', code: 'Estación 6', title: 'Vega de la Garza', note: 'Planicie de afloramiento y refugio de aves acuáticas.', image: '/api/media/slug/estacion-s6-foto-1' },
+  { kind: 'species', title: 'Picaflor Chico', scientific: 'Sephanoides sephaniodes', note: 'Poliniza el copihue y el notro del bosque.', image: '/api/media/slug/ilustracion-picaflor-chico' },
 ];
+
+const TRAIL_KM = HUMEDAL_ROUTES.reduce((sum, r) => sum + r.distanceKm, 0);
+
+interface Facts {
+  stations: number;
+  species: number;
+  nextEvent: WetlandEvent | null;
+}
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   currentUser,
   onEnterApp,
   onOpenAuth,
 }) => {
-  const tickerRef = useRef<HTMLDivElement>(null);
-  const [isPaused, setIsPaused] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const [facts, setFacts] = useState<Facts | null>(null);
+  const [railEdge, setRailEdge] = useState({ start: true, end: false });
 
-  // Slow continuous moving carousel effect
+  // Live figures for the summary panel
   useEffect(() => {
-    const el = tickerRef.current;
-    if (!el) return;
-
-    let animId: number;
-    let lastTimestamp: number | null = null;
-    const speedPixelsPerSecond = 24; // Movement speed: smooth and slow
-
-    const step = (timestamp: number) => {
-      if (lastTimestamp === null) lastTimestamp = timestamp;
-      const delta = (timestamp - lastTimestamp) / 1000;
-      lastTimestamp = timestamp;
-
-      if (!isPaused && el) {
-        el.scrollLeft += speedPixelsPerSecond * delta;
-        // Infinite seamless loop when reaching halfway
-        if (el.scrollLeft >= el.scrollWidth / 2) {
-          el.scrollLeft = 0;
-        }
-      }
-      animId = requestAnimationFrame(step);
+    let cancelled = false;
+    const today = dateKey(new Date());
+    Promise.all([
+      ecosistemaApi.getStations().catch(() => null),
+      ecosistemaApi.getSpecies().catch(() => null),
+      ecosistemaApi.getEvents().catch(() => null),
+    ]).then(([stations, species, events]) => {
+      if (cancelled) return;
+      const upcoming = (events ?? [])
+        .map(e => ({ e, key: eventDateKey(e.date) }))
+        .filter((x): x is { e: WetlandEvent; key: string } => x.key !== null && x.key >= today)
+        .sort((a, b) => a.key.localeCompare(b.key) || a.e.time.localeCompare(b.e.time));
+      setFacts({
+        stations: stations?.length ?? 0,
+        species: species?.length ?? 0,
+        nextEvent: upcoming[0]?.e ?? null,
+      });
+    });
+    return () => {
+      cancelled = true;
     };
+  }, []);
 
-    animId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(animId);
-  }, [isPaused]);
+  // Entrance for the summary panel and the gallery
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    root.classList.add('reveal-ready');
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-shown');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { rootMargin: '0px 0px -4% 0px' }
+    );
+    root.querySelectorAll('[data-reveal]:not(.is-shown)').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  const updateRailEdge = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    const start = el.scrollLeft < 8;
+    const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8;
+    setRailEdge(prev => (prev.start === start && prev.end === end ? prev : { start, end }));
+  }, []);
+
+  const scrollRail = (direction: 1 | -1) => {
+    const el = railRef.current;
+    if (!el) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: reduce ? 'auto' : 'smooth' });
+  };
+
+  const nextEvent = facts?.nextEvent ?? null;
+  const summary = [
+    {
+      tab: 'mapa',
+      figure: `${TRAIL_KM.toLocaleString('es-CL', { maximumFractionDigits: 1 })} km`,
+      label: 'de senderos con GPS',
+      text: 'Circuito Angachilla y Bosque Los Canelos, con guía paso a paso.',
+      action: 'Abrir el mapa',
+    },
+    {
+      tab: 'mapa',
+      // Without a count (backend unreachable) the word stands in for the figure, never a zero
+      figure: !facts ? null : facts.stations > 0 ? String(facts.stations) : 'Estaciones',
+      label: facts && facts.stations > 0 ? 'estaciones con QR' : 'con código QR',
+      text: 'Tótems en terreno con la historia y la botánica de cada sector.',
+      action: 'Ver estaciones',
+    },
+    {
+      tab: 'catalogo',
+      figure: !facts ? null : facts.species > 0 ? String(facts.species) : 'Especies',
+      label: facts && facts.species > 0 ? 'especies registradas' : 'del humedal',
+      text: 'Aves, anfibios, flora y hongos con su estado de conservación.',
+      action: 'Abrir la guía',
+    },
+    nextEvent
+      ? {
+          tab: 'eventos',
+          figure: formatEventDateShort(nextEvent.date),
+          label: 'próxima actividad',
+          text: nextEvent.title,
+          action: 'Ver el calendario',
+        }
+      : {
+          tab: 'eventos',
+          figure: facts ? 'Calendario' : null,
+          label: 'de actividades',
+          text: 'Caminatas guiadas, talleres y voluntariados del mes.',
+          action: 'Ver el calendario',
+        },
+  ];
 
   return (
-    <div className="relative w-full min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-white">
+    <div ref={rootRef} className="relative w-full min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-white">
       {/* Background Hero Image with Organic Gradient Overlay */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <img
@@ -182,9 +194,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div>
             <h1 className="text-sm sm:text-base font-extrabold text-white tracking-tight flex items-center gap-2">
               <span>Humedal Angachilla</span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                Sitio Ramsar
-              </span>
             </h1>
             <p className="text-[11px] text-stone-300">Reserva Comunitaria Valdivia</p>
           </div>
@@ -229,11 +238,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* Main Hero Content */}
       <main className="relative z-20 w-full max-w-5xl mx-auto px-4 sm:px-8 py-8 sm:py-12 flex flex-col items-center text-center">
-        {/* Institutional Pill */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-600/40 text-emerald-300 text-[11px] font-bold uppercase tracking-wider mb-5 shadow-sm">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Santuario de la Naturaleza · Acreditación Ramsar 2025</span>
-        </div>
+        
 
         {/* Title */}
         <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight font-display leading-[1.15]">
@@ -245,7 +250,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {/* Subtitle / Summary */}
         <p className="mt-4 sm:mt-6 text-sm sm:text-base md:text-lg text-stone-300 max-w-2xl leading-relaxed">
-          Descubre 20 hectáreas de biodiversidad protegida en Valdivia. Recorre senderos autoguiados con GPS, escanea tótems interpretativos con QR, conoce 69 especies locales y participa en las actividades de nuestra comunidad.
+          Descubre 20 hectáreas de biodiversidad protegida en Valdivia. Recorre senderos autoguiados con GPS, escanea tótems interpretativos con QR, conoce la flora y fauna local y participa en las actividades de nuestra comunidad.
         </p>
 
         {/* Primary Action Buttons */}
@@ -280,142 +285,123 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           )}
         </div>
 
-        {/* 4 Feature Highlights Grid */}
-        <div className="mt-10 sm:mt-14 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full">
-          <button
-            type="button"
-            onClick={() => onEnterApp('mapa')}
-            className="p-3.5 rounded-2xl bg-stone-900/70 hover:bg-stone-900/90 border border-stone-800/80 text-left transition-all group backdrop-blur-xs"
-          >
-            <div className="w-8 h-8 rounded-xl bg-emerald-950/80 border border-emerald-700/40 flex items-center justify-center text-emerald-400 mb-2.5 group-hover:scale-105 transition-transform">
-              <Compass className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-black text-white">Navegación GPS</p>
-            <p className="text-[11px] text-stone-300 mt-0.5 line-clamp-2">
-              Circuito Angachilla y Bosque Los Canelos con guía paso a paso.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onEnterApp('mapa')}
-            className="p-3.5 rounded-2xl bg-stone-900/70 hover:bg-stone-900/90 border border-stone-800/80 text-left transition-all group backdrop-blur-xs"
-          >
-            <div className="w-8 h-8 rounded-xl bg-teal-950/80 border border-teal-700/40 flex items-center justify-center text-teal-400 mb-2.5 group-hover:scale-105 transition-transform">
-              <QrCode className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-black text-white">Tótems & QR</p>
-            <p className="text-[11px] text-stone-300 mt-0.5 line-clamp-2">
-              9 estaciones en terreno con historias, audio e información botánica.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onEnterApp('catalogo')}
-            className="p-3.5 rounded-2xl bg-stone-900/70 hover:bg-stone-900/90 border border-stone-800/80 text-left transition-all group backdrop-blur-xs"
-          >
-            <div className="w-8 h-8 rounded-xl bg-amber-950/80 border border-amber-700/40 flex items-center justify-center text-amber-400 mb-2.5 group-hover:scale-105 transition-transform">
-              <BookOpen className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-black text-white">69 Especies</p>
-            <p className="text-[11px] text-stone-300 mt-0.5 line-clamp-2">
-              Ilustraciones botánicas, fauna nativa y conservación UICN.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onEnterApp('eventos')}
-            className="p-3.5 rounded-2xl bg-stone-900/70 hover:bg-stone-900/90 border border-stone-800/80 text-left transition-all group backdrop-blur-xs"
-          >
-            <div className="w-8 h-8 rounded-xl bg-sky-950/80 border border-sky-700/40 flex items-center justify-center text-sky-400 mb-2.5 group-hover:scale-105 transition-transform">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-black text-white">Actividades & Muro</p>
-            <p className="text-[11px] text-stone-300 mt-0.5 line-clamp-2">
-              Caminatas guiadas, voluntariados, noticias y avisos de vecinos.
-            </p>
-          </button>
-        </div>
+        {/* The wetland in figures, each one opens its section */}
+        <section
+          aria-label="El humedal en cifras"
+          data-reveal
+          className="mt-12 sm:mt-16 w-full grid grid-cols-2 lg:grid-cols-4 rounded-lg overflow-hidden bg-stone-950/80 text-left"
+        >
+          {summary.map(item => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onEnterApp(item.tab)}
+              className="group flex flex-col p-4 sm:p-6 text-left transition-colors hover:bg-white/[0.06] active:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
+            >
+              {item.figure ? (
+                <span className="font-display text-2xl sm:text-4xl font-semibold tracking-tight leading-none text-white tabular-nums">
+                  {item.figure}
+                </span>
+              ) : (
+                <span aria-hidden="true" className="block h-6 sm:h-9 w-14 rounded bg-stone-800 animate-pulse" />
+              )}
+              <span className="mt-2 text-sm sm:text-base font-medium text-stone-100">{item.label}</span>
+              <span className="mt-1.5 text-sm sm:text-base leading-snug text-stone-300 line-clamp-4 sm:line-clamp-3">{item.text}</span>
+              <span className="mt-auto pt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-300 group-hover:text-emerald-200">
+                {item.action}
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </button>
+          ))}
+        </section>
       </main>
 
-      {/* CONTINUOUS SLOW-MOVING CAROUSEL OF PHOTOS & SPECIES */}
-      <section className="relative z-20 w-full mt-2 pt-4 pb-6 bg-stone-950/80 border-t border-stone-800/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-xs sm:text-sm font-extrabold text-stone-200 uppercase tracking-wider">
-              Carrusel del Humedal · Fotos de Senderos y Especies
-            </h3>
+      {/* Stations and species of the trail */}
+      <section aria-labelledby="galeria-titulo" className="relative z-20 w-full pt-10 sm:pt-14 pb-10 bg-stone-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-end justify-between gap-6">
+          <div data-reveal>
+            <h2 id="galeria-titulo" className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
+              Estaciones y especies del sendero
+            </h2>
+            <p className="mt-2 max-w-xl text-base text-stone-300">
+              Seis estaciones del recorrido y algunas de las especies que puedes encontrar en ellas.
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-stone-300">
+          <div className="hidden sm:flex shrink-0 gap-2">
             <button
               type="button"
-              onClick={() => setIsPaused(p => !p)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-900 hover:bg-stone-800 border border-stone-700/70 text-stone-300 font-semibold text-[11px]"
+              onClick={() => scrollRail(-1)}
+              disabled={railEdge.start}
+              aria-label="Anteriores"
+              className="w-11 h-11 rounded-full flex items-center justify-center bg-stone-800 text-white hover:bg-stone-700 active:scale-95 disabled:opacity-35 disabled:pointer-events-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
             >
-              {isPaused ? <Play className="w-3 h-3 text-emerald-400" /> : <Pause className="w-3 h-3 text-amber-400" />}
-              <span>{isPaused ? 'Reanudar movimiento' : 'Pausar'}</span>
+              <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="hidden sm:inline text-stone-300 font-mono text-[10px]">
-              (Se mueve suavemente de forma automática)
-            </span>
+            <button
+              type="button"
+              onClick={() => scrollRail(1)}
+              disabled={railEdge.end}
+              aria-label="Siguientes"
+              className="w-11 h-11 rounded-full flex items-center justify-center bg-stone-800 text-white hover:bg-stone-700 active:scale-95 disabled:opacity-35 disabled:pointer-events-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Marquee Ticker Track */}
         <div
-          ref={tickerRef}
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-          onTouchStart={() => setIsPaused(true)}
-          onTouchEnd={() => setIsPaused(false)}
-          className="flex items-center gap-3.5 overflow-x-hidden scrollbar-none py-1 px-4 cursor-grab active:cursor-grabbing select-none"
+          ref={railRef}
+          onScroll={updateRailEdge}
+          className="mt-6 sm:mt-8 flex gap-4 sm:gap-5 overflow-x-auto snap-x snap-mandatory overscroll-x-contain pb-2 px-4 scroll-px-4 sm:px-[max(2rem,calc((100vw-80rem)/2+2rem))] sm:scroll-px-[max(2rem,calc((100vw-80rem)/2+2rem))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {/* Duplicate the array to create a seamless infinite loop */}
-          {[...CAROUSEL_ITEMS, ...CAROUSEL_ITEMS].map((item, idx) => (
-            <div
-              key={idx}
-              onClick={() => onEnterApp(item.type === 'station' ? 'mapa' : 'catalogo')}
-              className="w-56 sm:w-64 shrink-0 rounded-2xl bg-stone-900/90 border border-stone-800/90 hover:border-emerald-500/60 p-2.5 transition-all duration-300 hover:scale-[1.02] shadow-sm flex flex-col justify-between cursor-pointer group"
-            >
-              <div className="relative w-full h-32 sm:h-36 rounded-xl overflow-hidden bg-stone-950 flex items-center justify-center">
-                <img
-                  src={resolveMediaUrl(item.imageUrl)}
-                  alt={item.title}
-                  loading="lazy"
-                  className={`w-full h-full ${
-                    item.type === 'species' ? 'object-contain p-2 group-hover:scale-105' : 'object-cover group-hover:scale-105'
-                  } transition-transform duration-500`}
-                />
-                <div className="absolute top-2 left-2">
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-stone-950/80 backdrop-blur-md text-emerald-300 border border-emerald-500/30">
-                    {item.badge}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-2.5">
-                <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors line-clamp-1">
-                  {item.title}
-                </h4>
-                <p className="text-[10px] text-stone-300 line-clamp-1 mt-0.5">
-                  {item.subtitle}
-                </p>
-              </div>
-            </div>
-          ))}
+          {GALLERY.map((item, i) => {
+            const isSpecies = item.kind === 'species';
+            return (
+              <button
+                key={item.title}
+                type="button"
+                onClick={() => onEnterApp(isSpecies ? 'catalogo' : 'mapa')}
+                data-reveal
+                style={{ '--reveal-delay': `${Math.min(i, 4) * 70}ms` } as React.CSSProperties}
+                className="group snap-start shrink-0 w-[78%] sm:w-72 lg:w-80 text-left focus-visible:outline-none"
+              >
+                <span
+                  className={`block aspect-[4/3] rounded-md overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-emerald-400 group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-stone-950 ${
+                    isSpecies ? 'bg-[#eeeae2]' : 'bg-stone-800'
+                  }`}
+                >
+                  <img
+                    src={resolveMediaUrl(item.image)}
+                    alt={isSpecies ? `Ilustración de ${item.title}` : `${item.code}: ${item.title}`}
+                    loading="lazy"
+                    draggable={false}
+                    className={`w-full h-full transition-transform duration-500 ease-out group-hover:scale-[1.04] ${
+                      isSpecies ? 'object-contain p-5' : 'object-cover'
+                    }`}
+                  />
+                </span>
+                <span className="mt-3 block text-base font-semibold text-white">{item.title}</span>
+                <span className={`block text-sm text-stone-400 ${isSpecies ? 'italic' : ''}`}>
+                  {item.kind === 'species' ? item.scientific : item.code}
+                </span>
+                <span className="mt-1.5 block text-base leading-snug text-stone-300">{item.note}</span>
+                <span className="sr-only">{isSpecies ? 'Ver en la guía de especies' : 'Ver en el mapa'}</span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      {/* Footer info */}
-      <footer className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-8 py-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-stone-300 border-t border-stone-900">
-        <p>
-          Comité Ecológico Claro de Luna & Corporación Humedales de Angachilla · Valdivia
-        </p>
-        <p className="mt-1 sm:mt-0 text-stone-300">
-          Premio Valdivia Destaca 2026 · Protección de 20 Hectáreas
-        </p>
+      <footer className="relative z-20 w-full bg-stone-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-4 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-sm text-stone-400">
+          <p>Comité Ecológico Claro de Luna y Corporación Humedales de Angachilla · Valdivia</p>
+          <p>Premio Valdivia Destaca 2026 · 20 hectáreas protegidas</p>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-8 text-sm text-stone-400">
+          <p>
+            Desarrollado por <span className="font-semibold text-stone-200"><a href="https://strategiccode.cl" target="_blank" rel="noopener noreferrer">StrategicCode</a></span>
+          </p>
+        </div>
       </footer>
     </div>
   );
