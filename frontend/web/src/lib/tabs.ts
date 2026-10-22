@@ -5,6 +5,7 @@ export const TAB_PATHS = {
   eventos: '/eventos',
   galeria: '/galeria',
   catalogo: '/especies',
+  apps: '/apps',
   sugerencias: '/buzon',
   admin: '/admin',
   perfil: '/perfil',

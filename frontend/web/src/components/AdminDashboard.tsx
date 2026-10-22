@@ -14,6 +14,7 @@ import {
   ModerationTicket
 } from '../types';
 import { storageService } from '../services/storageService';
+import { resolveMediaUrl } from '../lib/api';
 import { HUMEDAL_ROUTES } from '../data/mockData';
 import { eventDateKey, formatEventDate } from '../lib/eventDates';
 
@@ -217,7 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onR
   const [section, setSection] = useState<SectionId>('tickets');
   const [ticketFilter, setTicketFilter] = useState<TicketFilter>('pendiente');
 
-  // Datasets from storage
+  // Datasets from storage (PostgreSQL + MongoDB)
   const [tickets, setTickets] = useState<ModerationTicket[]>(() => storageService.getModerationTickets());
   const [suggestions, setSuggestions] = useState<Suggestion[]>(() => storageService.getSuggestions());
   const [photos, setPhotos] = useState<CommunityPhoto[]>(() => storageService.getCommunityPhotos());
@@ -226,6 +227,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onR
   const [speciesList, setSpeciesList] = useState<Species[]>(() => storageService.getSpecies());
   const [eventsList, setEventsList] = useState<WetlandEvent[]>(() => storageService.getEvents());
   const [donationsList] = useState<DonationRecord[]>(() => storageService.getDonations());
+
+  useEffect(() => {
+    const onSync = () => {
+      setTickets([...storageService.getModerationTickets()]);
+      setSuggestions([...storageService.getSuggestions()]);
+      setPhotos([...storageService.getCommunityPhotos()]);
+      setNotices([...storageService.getNotices()]);
+      setPointsOfInterest([...storageService.getPointsOfInterest()]);
+      setSpeciesList([...storageService.getSpecies()]);
+      setEventsList([...storageService.getEvents()]);
+    };
+    window.addEventListener('angachilla:sync', onSync);
+    onSync();
+    return () => window.removeEventListener('angachilla:sync', onSync);
+  }, []);
 
   // Dialogs: one draft per kind, `id` set when editing an existing record
   const [totemDraft, setTotemDraft] = useState<{ id?: string; data: Omit<PointOfInterest, 'id'> } | null>(null);
@@ -272,7 +288,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onR
         title: ticket.title,
         summary: ticket.description.slice(0, 140),
         fullText: ticket.description,
-        image: ticket.imageUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
+        image: ticket.imageUrl || resolveMediaUrl('/api/media/slug/estacion-s1-foto-1'),
         category: 'comunidad',
         author: ticket.authorName
       });
@@ -390,7 +406,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onR
         routeName: route?.name ?? '',
         category: 'avistamiento',
         capacity: 20,
-        image: 'https://images.unsplash.com/photo-1549480017-d76466a4b7e8?auto=format&fit=crop&w=900&q=80',
+        image: resolveMediaUrl('/api/media/slug/estacion-s1-foto-1'),
         organizer: 'Comité Ecológico Angachilla'
       }
     });

@@ -2,29 +2,27 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Compass,
   QrCode,
-  BookOpen,
-  Bell,
-  Camera,
   MessageSquarePlus,
   ShieldCheck,
   Volume2,
   VolumeX,
-  UserCheck,
   LogIn,
   LogOut,
   FileText,
-  Sparkles,
   Heart,
   Plus,
   Download,
   Menu,
-  X
+  Calendar,
+  Smartphone,
+  Sparkles
 } from 'lucide-react';
 import { User } from '../types';
+import { resolveMediaUrl } from '../lib/api';
 import { soundService } from '../services/soundService';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { useApp } from './AppShell';
 
 interface NavbarProps {
   setCurrentTab: (tab: string) => void;
@@ -49,12 +47,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCreateSheet,
   isCreatePanelOpen
 }) => {
+  const { openLanding } = useApp();
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { isInstallable, install } = usePWAInstall();
 
-  // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -76,33 +74,40 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="lg:hidden sticky top-0 z-40 bg-white text-stone-900 border-b border-stone-200/90 shadow-xs select-none">
+    <header className="sticky top-0 z-40 bg-white text-stone-900 border-b border-stone-200/90 shadow-xs select-none lg:pl-20">
+      {/* Main Fixed Top Header (Logo Oficial + Donaciones + Perfil de Usuario) */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          {/* Brand Logo & Title */}
+          {/* Official Brand SVG Logos (SIMBOLO + LETRAS ANGACHILLA APP) */}
           <div
-            className="flex items-center space-x-2.5 cursor-pointer group"
+            className="flex items-center gap-2.5 cursor-pointer group"
             onClick={() => setCurrentTab('avisos')}
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-800 flex items-center justify-center text-white shadow-xs group-hover:bg-emerald-700 transition-colors">
-              <Compass className="w-5 h-5 text-emerald-100" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-900 flex items-center justify-center p-1.5 shadow-xs group-hover:bg-emerald-800 transition-colors shrink-0">
+              <img
+                src={resolveMediaUrl('/api/media/slug/svg-simbolo-angachilla-app')}
+                alt="Símbolo Angachilla App"
+                className="w-full h-full object-contain brightness-0 invert"
+              />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-lg sm:text-xl tracking-tight text-stone-900 font-display">
-                  Angachilla
-                </span>
-                <span className="hidden sm:inline-block px-1.5 py-0.2 text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-900 rounded-full border border-emerald-300">
-                  Santuario
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <img
+                  src={resolveMediaUrl('/api/media/slug/svg-letras-angachilla-app')}
+                  alt="Angachilla App"
+                  className="h-5 sm:h-6 w-auto object-contain"
+                />
+                <span className="hidden sm:inline-block px-2 py-0.5 text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-900 rounded-full border border-emerald-300">
+                  Reserva Comunitaria
                 </span>
               </div>
-              <p className="text-[10px] text-stone-400 font-semibold tracking-wide hidden sm:block">
-                Humedal Urbano • Valdivia
+              <p className="text-[10px] text-stone-500 font-semibold tracking-wide hidden sm:block">
+                Santuario de la Naturaleza Humedal Angachilla · Valdivia
               </p>
             </div>
           </div>
 
-          {/* Unified, uncluttered Action Bar */}
+          {/* Right Action Bar: Ambient + Donations + Create + User Profile */}
           <div className="flex items-center space-x-1.5 sm:space-x-2">
             {/* Ambient Nature Sound Toggle */}
             <button
@@ -120,16 +125,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
-            {/* Donation Button */}
+            {/* Donation Button (Required in Fixed Top Header per Acta Reunión 3) */}
             {onOpenDonations && (
               <button
                 id="navbar-donate-button"
                 onClick={onOpenDonations}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 shadow-xs transition-all active:scale-95"
-                title="Hacer un aporte voluntario al Santuario Angachilla"
+                title="Hacer una donación o aporte voluntario a la Reserva Comunitaria Angachilla"
               >
                 <Heart className="w-3.5 h-3.5 fill-rose-600 text-rose-600" />
-                <span>Apoyar</span>
+                <span>Donar</span>
               </button>
             )}
 
@@ -142,17 +147,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-stone-900 text-white border-stone-900 shadow-xs ring-2 ring-stone-900/20'
                   : 'bg-stone-100 hover:bg-stone-200 text-stone-800 border-stone-200'
               }`}
-              title="Publicar aviso o reporte"
+              title="Publicar en el Feed o subir foto"
             >
               <Plus className={`w-4 h-4 stroke-[2.5] transition-transform duration-200 ${isCreatePanelOpen ? 'rotate-45' : ''}`} />
             </button>
 
-            {/* Unified User & Tools Menu Dropdown */}
+            {/* User Profile & Tools Menu Dropdown */}
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-1.5 p-1 sm:px-2 sm:py-1 rounded-full border border-stone-200 hover:bg-stone-50 transition-colors focus:outline-none"
-                title="Menú de herramientas y cuenta"
+                title="Perfil de usuario y herramientas"
               >
                 <div className="w-7 h-7 rounded-full bg-emerald-800 text-white flex items-center justify-center text-xs font-bold overflow-hidden border border-stone-200">
                   {currentUser?.avatar ? (
@@ -165,16 +170,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span>{currentUser ? currentUser.name[0] : 'V'}</span>
                   )}
                 </div>
+                <span className="hidden md:inline text-xs font-bold text-stone-700 max-w-[96px] truncate">
+                  {currentUser ? currentUser.name.split(' ')[0] : 'Perfil'}
+                </span>
                 <Menu className="w-3.5 h-3.5 text-stone-600 hidden sm:block" />
               </button>
 
-              {/* Tactile Surface Menu */}
               {showUserMenu && (
                 <div
                   className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-stone-200 py-2 z-50 text-xs text-stone-900 animate-in fade-in zoom-in-95 duration-150"
                   onClick={() => setShowUserMenu(false)}
                 >
-                  {/* Profile summary, links to the profile page */}
                   <button
                     type="button"
                     onClick={() => setCurrentTab('perfil')}
@@ -188,14 +194,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                         ? `${currentUser.email} · ${currentUser.role === 'admin' ? 'Guardaparques' : 'Visitante'}`
                         : 'Sin sesión iniciada'}
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-stone-900">Ver tu perfil ›</p>
+                    <p className="mt-1 text-xs font-semibold text-emerald-800">Ver tu perfil y actividad ›</p>
                   </button>
 
-                  {/* Sanctuary Tools Group */}
                   <div className="px-3 py-1.5">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400 px-1 py-1">
                       Herramientas del Humedal
                     </p>
+
+                    <button
+                      onClick={openLanding}
+                      className="w-full px-2 py-2 text-left text-stone-700 hover:bg-stone-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors"
+                    >
+                      <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>Portada / Bienvenida</span>
+                    </button>
 
                     <button
                       onClick={onOpenQR}
@@ -206,11 +219,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </button>
 
                     <button
+                      onClick={() => setCurrentTab('eventos')}
+                      className="w-full px-2 py-2 text-left text-stone-700 hover:bg-stone-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors"
+                    >
+                      <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>Calendario de Actividades</span>
+                    </button>
+
+                    <button
+                      onClick={() => setCurrentTab('apps')}
+                      className="w-full px-2 py-2 text-left text-stone-700 hover:bg-stone-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors"
+                    >
+                      <Smartphone className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>Apps Complementarias</span>
+                    </button>
+
+                    <button
                       onClick={onOpenPosters}
                       className="w-full px-2 py-2 text-left text-stone-700 hover:bg-stone-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors"
                     >
                       <FileText className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <span>Decálogo y Posters Oficiales</span>
+                      <span>Decálogo y Normas Oficiales</span>
                     </button>
 
                     {isInstallable && (
@@ -232,7 +261,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </button>
                   </div>
 
-                  {/* Administrative / Account Actions */}
                   <div className="border-t border-stone-100 my-1 pt-1 px-3">
                     {currentUser?.role === 'admin' && (
                       <button
@@ -264,6 +292,55 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Institutional Sub-Bar with the 3 Official Logos (Acta Reunión 3 App) */}
+      <div className="bg-stone-50/90 border-t border-stone-200/70 px-3 sm:px-6 py-1.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 shrink-0 hidden sm:inline">
+            Impulsan y administran:
+          </span>
+          <div className="flex items-center justify-around sm:justify-end gap-4 sm:gap-6 w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 shrink-0" title="Reserva Comunitaria Humedal Angachilla">
+              <img
+                src={resolveMediaUrl('/api/media/slug/svg-logo-reserva-comunitaria')}
+                alt="Logo Reserva Comunitaria Humedal Angachilla"
+                className="h-6 sm:h-7 w-auto object-contain"
+              />
+              <span className="text-[10px] font-bold text-stone-700 hidden md:inline">
+                Reserva Comunitaria
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-stone-200 shrink-0" />
+
+            <div className="flex items-center gap-1.5 shrink-0" title="Comité Ecológico Bosque Humedal Angachilla">
+              <img
+                src={resolveMediaUrl('/api/media/slug/svg-logo-comite-ecologico')}
+                alt="Logo Comité Ecológico Bosque Humedal Angachilla"
+                className="h-6 sm:h-7 w-auto object-contain"
+              />
+              <span className="text-[10px] font-bold text-stone-700 hidden md:inline">
+                Comité Ecológico
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-stone-200 shrink-0" />
+
+            <div className="flex items-center gap-2 shrink-0" title="Ilustre Municipalidad de Valdivia · Marca Turística">
+              <img
+                src={resolveMediaUrl('/api/media/slug/svg-logo-muni-valdivia')}
+                alt="Logo Municipalidad de Valdivia"
+                className="h-6 sm:h-7 w-auto object-contain"
+              />
+              <img
+                src={resolveMediaUrl('/api/media/slug/svg-logo-marca-turistica')}
+                alt="Logo Marca Turística Valdivia"
+                className="h-5 sm:h-6 w-auto object-contain"
+              />
             </div>
           </div>
         </div>

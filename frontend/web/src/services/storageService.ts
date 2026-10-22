@@ -8,7 +8,8 @@ import {
   Species,
   DonationRecord,
   SponsorAd,
-  ModerationTicket
+  ModerationTicket,
+  OfficialGalleryPhoto,
 } from '../types';
 import {
   INITIAL_NOTICES,
@@ -20,152 +21,329 @@ import {
   resolveRouteId,
   INITIAL_SPECIES,
   INITIAL_SPONSOR_ADS,
-  INITIAL_MODERATION_TICKETS
+  INITIAL_MODERATION_TICKETS,
 } from '../data/mockData';
+import { apiFetch, ecosistemaApi, feedApi, resolveMediaUrl } from '../lib/api';
 
 const STORAGE_KEYS = {
-  NOTICES: 'angachilla_notices',
-  SUGGESTIONS: 'angachilla_suggestions',
-  COMMUNITY_PHOTOS: 'angachilla_photos',
-  SCANNED_QRS: 'angachilla_scanned_qrs',
-  WAZE_ALERTS: 'angachilla_waze_alerts',
-  EVENTS: 'angachilla_events',
-  REGISTERED_EVENTS: 'angachilla_registered_events',
-  POINTS_OF_INTEREST: 'angachilla_points_of_interest',
-  SPECIES: 'angachilla_species',
-  DONATIONS: 'angachilla_donations',
+  SCANNED_QRS: 'angachilla_scanned_qrs_v2',
+  SAVED_NOTICES: 'angachilla_saved_notices_v2',
   AD_FREE: 'angachilla_ad_free_status',
-  SPONSOR_ADS: 'angachilla_sponsor_ads',
-  MODERATION_TICKETS: 'angachilla_moderation_tickets',
-  SAVED_NOTICES: 'angachilla_saved_notices'
 };
 
+const LEGACY_KEYS_TO_PURGE = [
+  'angachilla_notices',
+  'angachilla_suggestions',
+  'angachilla_photos',
+  'angachilla_waze_alerts',
+  'angachilla_events',
+  'angachilla_registered_events',
+  'angachilla_points_of_interest',
+  'angachilla_species',
+  'angachilla_donations',
+  'angachilla_sponsor_ads',
+  'angachilla_moderation_tickets',
+];
+
 class StorageService {
-  // --- Notices ---
-  getNotices(): Notice[] {
-    if (typeof window === 'undefined') return INITIAL_NOTICES;
-    const stored = localStorage.getItem(STORAGE_KEYS.NOTICES);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(INITIAL_NOTICES));
-      return INITIAL_NOTICES;
+  private officialNotices: Notice[] = INITIAL_NOTICES;
+  private feedPosts: Notice[] = [];
+  private communityPhotos: CommunityPhoto[] = INITIAL_COMMUNITY_PHOTOS;
+  private officialGallery: OfficialGalleryPhoto[] = [];
+  private stations: PointOfInterest[] = POINTS_OF_INTEREST;
+  private species: Species[] = INITIAL_SPECIES;
+  private events: WetlandEvent[] = INITIAL_WETLAND_EVENTS;
+  private suggestions: Suggestion[] = INITIAL_SUGGESTIONS;
+  private donations: DonationRecord[] = [];
+  private liveAlerts: WazeLiveAlert[] = WAZE_LIVE_ALERTS;
+  private moderationTickets: ModerationTicket[] = INITIAL_MODERATION_TICKETS;
+  private institutionalContents: Record<string, any> = {};
+  private initialized = false;
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      // Limpia cachés antiguos con datos/imágenes falsas de Unsplash
+      for (const k of LEGACY_KEYS_TO_PURGE) {
+        localStorage.removeItem(k);
+      }
+      this.syncAll();
     }
+  }
+
+  private notify() {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('angachilla:sync'));
+    }
+  }
+
+  async syncAll(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    this.initialized = true;
     try {
-      return JSON.parse(stored);
+      const [
+        stations,
+        species,
+        officialNotices,
+        feedItems,
+        events,
+        officialGallery,
+        contents,
+        alerts,
+        suggestionsRes,
+        donationsRes,
+      ] = await Promise.all([
+        ecosistemaApi.getStations().catch(() => this.stations),
+        ecosistemaApi.getSpecies().catch(() => this.species),
+        ecosistemaApi.getOfficialNotices().catch(() => this.officialNotices),
+        feedApi.getPosts().catch(() => []),
+        ecosistemaApi.getEvents().catch(() => this.events),
+        ecosistemaApi.getOfficialGallery().catch(() => []),
+        ecosistemaApi.getContents().catch(() => ({})),
+        feedApi.getRouteAlerts().catch(() => this.liveAlerts),
+        apiFetch<{ suggestions: Suggestion[] }>('/api/sugerencias')
+          .then(r => r.suggestions)
+          .catch(() => this.suggestions),
+        apiFetch<{ donations: DonationRecord[] }>('/api/donaciones')
+          .then(r => r.donations)
+          .catch(() => this.donations),
+      ]);
+
+      if (stations.length) this.stations = stations;
+      if (species.length) this.species = species;
+      if (officialNotices.length) this.officialNotices = officialNotices;
+      if (events.length) this.events = events;
+      this.officialGallery = officialGallery;
+      if (Object.keys(contents).length) this.institutionalContents = contents;
+      if (alerts.length) this.liveAlerts = alerts;
+      this.suggestions = suggestionsRes;
+      this.donations = donationsRes;
+
+      if (feedItems.length) {
+        this.feedPosts = feedItems.map((p: any) => ({
+          id: p.id,
+          type: p.type,
+          title: p.title,
+          summary: p.summary || p.description || '',
+          fullText: p.fullText || p.description || '',
+          image: p.image,
+          category: p.category || 'comunidad',
+          date: p.date,
+          author: p.authorName || p.author || 'Comunidad',
+          authorAvatar: p.authorAvatar,
+          visitedPlace: p.visitedPlace,
+          stationCodigo: p.stationCodigo,
+          routeSlug: p.routeSlug,
+          approved: true,
+          isCommunity: true,
+          likes: p.likes ?? 0,
+          likedByMe: Boolean(p.likedByMe),
+          isSaved: Boolean(p.isSaved),
+          commentsCount: p.commentsCount ?? 0,
+          comments: p.comments ?? [],
+        }));
+
+        this.communityPhotos = feedItems.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          visitedPlace: p.visitedPlace || 'Reserva Comunitaria Bosque Humedal Angachilla',
+          stationCodigo: p.stationCodigo,
+          imageUrl: p.imageUrl || p.image,
+          authorName: p.authorName || p.author || 'Visitante',
+          authorEmail: p.authorEmail || '',
+          authorAvatar: p.authorAvatar,
+          date: p.date,
+          likes: p.likes ?? 0,
+          likedByMe: Boolean(p.likedByMe),
+          isSaved: Boolean(p.isSaved),
+          approved: true,
+          description: p.description || p.fullText || p.summary || '',
+          tags: p.tags || ['Comunidad', 'Humedal'],
+          aspectRatio: p.aspectRatio || 'tall',
+          commentsCount: p.commentsCount ?? 0,
+          comments: p.comments ?? [],
+        }));
+      }
+
+      // Intentar cargar cola de moderación si el usuario es admin
+      feedApi
+        .getModerationQueue()
+        .then(tickets => {
+          this.moderationTickets = tickets;
+          this.notify();
+        })
+        .catch(() => {});
+
+      this.notify();
     } catch {
-      return INITIAL_NOTICES;
+      // Silencioso en caso de modo offline
     }
+  }
+
+  getInstitutionalContents(): Record<string, any> {
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.institutionalContents;
+  }
+
+  getOfficialGallery(): OfficialGalleryPhoto[] {
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.officialGallery;
+  }
+
+  async uploadOfficialGalleryPhoto(data: {
+    stationCode: string;
+    title: string;
+    description?: string;
+    dataUrl: string;
+  }): Promise<void> {
+    await ecosistemaApi.uploadOfficialGalleryPhoto(data);
+    await this.syncAll();
+  }
+
+  // --- Notices (Avisos Oficiales + Posts aprobados en MongoDB) ---
+  getNotices(): Notice[] {
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return [...this.officialNotices, ...this.feedPosts];
+  }
+
+  toggleLikeNotice(id: string): Notice[] {
+    this.toggleLikePhoto(id);
+    return this.getNotices();
+  }
+
+  getOfficialNoticesOnly(): Notice[] {
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.officialNotices;
+  }
+
+  getFeedPostsOnly(): Notice[] {
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.feedPosts;
+  }
+
+  getPostsByRoute(routeId: string): Notice[] {
+    const rId = resolveRouteId(routeId);
+    return this.getNotices().filter(n => {
+      if (n.routeSlug && resolveRouteId(n.routeSlug) === rId) return true;
+      if (rId === 'ruta-canelos') {
+        return n.stationCodigo === 'S5' || n.visitedPlace?.toLowerCase().includes('canelos');
+      } else {
+        return (
+          ['S1', 'S2', 'S3', 'S4', 'S6', 'E7', 'E8', 'E9'].includes(n.stationCodigo || '') ||
+          !n.stationCodigo ||
+          n.visitedPlace?.toLowerCase().includes('circuito')
+        );
+      }
+    });
   }
 
   addNotice(notice: Omit<Notice, 'id' | 'date'>): Notice {
-    const notices = this.getNotices();
-    const newNotice: Notice = {
+    const optimistic: Notice = {
       ...notice,
       id: 'not-' + Date.now(),
-      date: new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+      image: resolveMediaUrl(notice.image),
+      date: new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }),
+      approved: true,
     };
-    const updated = [newNotice, ...notices];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(updated));
-    }
-    return newNotice;
+    this.officialNotices = [optimistic, ...this.officialNotices];
+    this.notify();
+
+    apiFetch('/api/avisos', {
+      method: 'POST',
+      body: JSON.stringify(notice),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
+    return optimistic;
   }
 
   toggleApproveNotice(id: string): Notice[] {
-    const notices = this.getNotices();
-    const updated = notices.map(n => {
-      if (n.id === id) {
-        return { ...n, approved: !n.approved };
-      }
-      return n;
-    });
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(updated));
-    }
-    return updated;
+    feedApi
+      .moderatePost(id, 'aprobado')
+      .then(() => this.syncAll())
+      .catch(() => {});
+    return this.getNotices();
   }
 
   deleteNotice(id: string) {
-    const notices = this.getNotices().filter(n => n.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
-    }
+    this.officialNotices = this.officialNotices.filter(n => n.id !== id);
+    this.feedPosts = this.feedPosts.filter(n => n.id !== id);
+    this.notify();
+
+    apiFetch(`/api/avisos/${id}`, { method: 'DELETE' })
+      .catch(() => feedApi.deletePost(id))
+      .finally(() => this.syncAll());
   }
 
-  // --- Suggestions ---
+  // --- Suggestions (PostgreSQL sugerencia) ---
   getSuggestions(): Suggestion[] {
-    if (typeof window === 'undefined') return INITIAL_SUGGESTIONS;
-    const stored = localStorage.getItem(STORAGE_KEYS.SUGGESTIONS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(INITIAL_SUGGESTIONS));
-      return INITIAL_SUGGESTIONS;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return INITIAL_SUGGESTIONS;
-    }
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.suggestions;
   }
 
-  addSuggestion(data: { title: string; description: string; category: Suggestion['category']; authorName: string; authorEmail: string }): Suggestion {
-    const suggestions = this.getSuggestions();
+  addSuggestion(data: {
+    title: string;
+    description: string;
+    category: Suggestion['category'];
+    authorName: string;
+    authorEmail: string;
+  }): Suggestion {
     const newSug: Suggestion = {
       id: 'sug-' + Date.now(),
       title: data.title,
       description: data.description,
       category: data.category,
-      status: 'pendiente', // Requires admin moderation
+      status: 'pendiente',
       createdAt: new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }),
       authorName: data.authorName,
-      authorEmail: data.authorEmail
+      authorEmail: data.authorEmail,
     };
-    const updated = [newSug, ...suggestions];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(updated));
-    }
+    this.suggestions = [newSug, ...this.suggestions];
+    this.notify();
+
+    apiFetch('/api/sugerencias', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
     return newSug;
   }
 
   updateSuggestionStatus(id: string, status: 'aprobada' | 'rechazada', adminComment?: string) {
-    const suggestions = this.getSuggestions().map(s => {
-      if (s.id === id) {
-        return {
-          ...s,
-          status,
-          adminComment: adminComment || s.adminComment
-        };
-      }
-      return s;
-    });
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(suggestions));
-    }
+    this.suggestions = this.suggestions.map(s =>
+      s.id === id ? { ...s, status, adminComment: adminComment || s.adminComment } : s
+    );
+    this.notify();
+
+    apiFetch(`/api/sugerencias/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, adminComment }),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
   }
 
   deleteSuggestion(id: string) {
-    const suggestions = this.getSuggestions().filter(s => s.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(suggestions));
-    }
+    this.suggestions = this.suggestions.filter(s => s.id !== id);
+    this.notify();
+
+    apiFetch(`/api/sugerencias/${id}`, { method: 'DELETE' })
+      .then(() => this.syncAll())
+      .catch(() => {});
   }
 
-  // --- Community Photos ---
+  // --- Community Photos & Feed (MongoDB feed_posts) ---
   getCommunityPhotos(): CommunityPhoto[] {
-    if (typeof window === 'undefined') return INITIAL_COMMUNITY_PHOTOS;
-    const stored = localStorage.getItem(STORAGE_KEYS.COMMUNITY_PHOTOS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.COMMUNITY_PHOTOS, JSON.stringify(INITIAL_COMMUNITY_PHOTOS));
-      return INITIAL_COMMUNITY_PHOTOS;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return INITIAL_COMMUNITY_PHOTOS;
-    }
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.communityPhotos;
   }
 
   addCommunityPhoto(data: {
     title: string;
     visitedPlace: string;
+    stationCodigo?: string;
     imageUrl: string;
     authorName: string;
     authorEmail: string;
@@ -174,61 +352,91 @@ class StorageService {
     aspectRatio?: 'tall' | 'wide' | 'square';
     authorAvatar?: string;
   }): CommunityPhoto {
-    const photos = this.getCommunityPhotos();
     const newPhoto: CommunityPhoto = {
       id: 'photo-' + Date.now(),
       title: data.title,
       visitedPlace: data.visitedPlace,
-      imageUrl: data.imageUrl,
+      stationCodigo: data.stationCodigo,
+      imageUrl: resolveMediaUrl(data.imageUrl),
       authorName: data.authorName,
       authorEmail: data.authorEmail,
-      authorAvatar: data.authorAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(data.authorName)}`,
+      authorAvatar: data.authorAvatar || resolveMediaUrl('/api/media/slug/svg-simbolo-angachilla-app'),
       date: new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }),
       likes: 0,
-      approved: true, // Visible in gallery
+      approved: false,
+      status: 'pendiente',
       description: data.description,
       tags: data.tags || ['Comunidad', 'Humedal'],
       aspectRatio: data.aspectRatio || 'tall',
       commentsCount: 0,
-      isSaved: false
+      isSaved: false,
     };
-    const updated = [newPhoto, ...photos];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.COMMUNITY_PHOTOS, JSON.stringify(updated));
-    }
+
+    feedApi
+      .createPost({
+        type: 'photo_pin',
+        ticketType: 'foto_comunidad',
+        title: data.title,
+        description: data.description,
+        visitedPlace: data.visitedPlace,
+        stationCodigo: data.stationCodigo,
+        imageUrl: data.imageUrl,
+        tags: data.tags,
+        aspectRatio: data.aspectRatio,
+      })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
     return newPhoto;
   }
 
   toggleLikePhoto(photoId: string): number {
-    const photos = this.getCommunityPhotos();
     let newLikes = 0;
-    const updated = photos.map(p => {
+    this.communityPhotos = this.communityPhotos.map(p => {
       if (p.id === photoId) {
         const liked = !p.likedByMe;
         newLikes = liked ? p.likes + 1 : Math.max(0, p.likes - 1);
-        return {
-          ...p,
-          likedByMe: liked,
-          likes: newLikes
-        };
+        return { ...p, likedByMe: liked, likes: newLikes };
       }
       return p;
     });
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.COMMUNITY_PHOTOS, JSON.stringify(updated));
-    }
+    this.feedPosts = this.feedPosts.map(p => {
+      if (p.id === photoId) {
+        const liked = !p.likedByMe;
+        return { ...p, likedByMe: liked, likes: liked ? (p.likes ?? 0) + 1 : Math.max(0, (p.likes ?? 0) - 1) };
+      }
+      return p;
+    });
+    this.notify();
+
+    feedApi
+      .toggleLike(photoId)
+      .then(res => {
+        this.communityPhotos = this.communityPhotos.map(p =>
+          p.id === photoId ? { ...p, likedByMe: res.likedByMe, likes: res.likes } : p
+        );
+        this.feedPosts = this.feedPosts.map(p =>
+          p.id === photoId ? { ...p, likedByMe: res.likedByMe, likes: res.likes } : p
+        );
+        this.notify();
+      })
+      .catch(() => {});
+
     return newLikes;
   }
 
   deleteCommunityPhoto(id: string) {
-    const photos = this.getCommunityPhotos().filter(p => p.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.COMMUNITY_PHOTOS, JSON.stringify(photos));
-    }
+    this.communityPhotos = this.communityPhotos.filter(p => p.id !== id);
+    this.feedPosts = this.feedPosts.filter(p => p.id !== id);
+    this.notify();
+
+    feedApi
+      .deletePost(id)
+      .then(() => this.syncAll())
+      .catch(() => {});
   }
 
-  // --- Scanned QR Badges ---
-  // --- Saved notices (bookmark on the home feed, listed in the profile) ---
+  // --- Saved notices & QR Badges ---
   getSavedNoticeIds(): string[] {
     if (typeof window === 'undefined') return [];
     try {
@@ -244,6 +452,8 @@ class StorageService {
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEYS.SAVED_NOTICES, JSON.stringify(updated));
     }
+    feedApi.toggleSave(id).catch(() => {});
+    this.notify();
     return updated;
   }
 
@@ -265,57 +475,39 @@ class StorageService {
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.SCANNED_QRS, JSON.stringify(list));
       }
-      return true; // First time badge awarded!
+      this.notify();
+      return true;
     }
     return false;
   }
 
-  // --- Waze Live Alerts ---
+  // --- Live Route Alerts (MongoDB route_alerts) ---
   getLiveAlerts(): WazeLiveAlert[] {
-    if (typeof window === 'undefined') return WAZE_LIVE_ALERTS;
-    const stored = localStorage.getItem(STORAGE_KEYS.WAZE_ALERTS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.WAZE_ALERTS, JSON.stringify(WAZE_LIVE_ALERTS));
-      return WAZE_LIVE_ALERTS;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return WAZE_LIVE_ALERTS;
-    }
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.liveAlerts;
   }
 
   addLiveAlert(alert: Omit<WazeLiveAlert, 'id' | 'timeAgo'>): WazeLiveAlert {
-    const alerts = this.getLiveAlerts();
     const newAlert: WazeLiveAlert = {
       ...alert,
       id: 'al-' + Date.now(),
-      timeAgo: 'Ahora mismo'
+      timeAgo: 'Ahora mismo',
     };
-    const updated = [newAlert, ...alerts];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.WAZE_ALERTS, JSON.stringify(updated));
-    }
+    this.liveAlerts = [newAlert, ...this.liveAlerts];
+    this.notify();
+
+    feedApi
+      .createRouteAlert(alert)
+      .then(() => this.syncAll())
+      .catch(() => {});
+
     return newAlert;
   }
 
-  // --- Wetland Events ---
+  // --- Wetland Events (PostgreSQL evento + inscripcion_evento) ---
   getEvents(): WetlandEvent[] {
-    if (typeof window === 'undefined') return INITIAL_WETLAND_EVENTS;
-    const stored = localStorage.getItem(STORAGE_KEYS.EVENTS);
-    const registeredIds: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTERED_EVENTS) || '[]');
-    let eventsList = INITIAL_WETLAND_EVENTS;
-    if (stored) {
-      try {
-        eventsList = JSON.parse(stored);
-      } catch {
-        eventsList = INITIAL_WETLAND_EVENTS;
-      }
-    }
-    return eventsList.map(evt => ({
-      ...evt,
-      isRegistered: registeredIds.includes(evt.id)
-    }));
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.events;
   }
 
   getEventsByRoute(routeId: string): WetlandEvent[] {
@@ -323,201 +515,205 @@ class StorageService {
   }
 
   toggleRegisterEvent(eventId: string): { isRegistered: boolean; newCount: number } {
-    if (typeof window === 'undefined') return { isRegistered: false, newCount: 0 };
-    const registeredIds: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTERED_EVENTS) || '[]');
-    const isCurrentlyReg = registeredIds.includes(eventId);
-    let updatedIds: string[];
-    if (isCurrentlyReg) {
-      updatedIds = registeredIds.filter(id => id !== eventId);
-    } else {
-      updatedIds = [...registeredIds, eventId];
-    }
-    localStorage.setItem(STORAGE_KEYS.REGISTERED_EVENTS, JSON.stringify(updatedIds));
-
-    // Update event registered count
-    const events = this.getEvents();
+    let isRegistered = false;
     let newCount = 0;
-    const updatedEvents = events.map(evt => {
+
+    this.events = this.events.map(evt => {
       if (evt.id === eventId) {
-        newCount = !isCurrentlyReg ? evt.registeredCount + 1 : Math.max(0, evt.registeredCount - 1);
-        return {
-          ...evt,
-          registeredCount: newCount,
-          isRegistered: !isCurrentlyReg
-        };
+        isRegistered = !evt.isRegistered;
+        newCount = isRegistered ? evt.registeredCount + 1 : Math.max(0, evt.registeredCount - 1);
+        return { ...evt, isRegistered, registeredCount: newCount };
       }
       return evt;
     });
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(updatedEvents));
-    return { isRegistered: !isCurrentlyReg, newCount };
+    this.notify();
+
+    ecosistemaApi
+      .toggleRegisterEvent(eventId)
+      .then(res => {
+        this.events = this.events.map(evt =>
+          evt.id === eventId
+            ? { ...evt, isRegistered: res.isRegistered, registeredCount: res.registeredCount }
+            : evt
+        );
+        this.notify();
+      })
+      .catch(() => {});
+
+    return { isRegistered, newCount };
   }
 
   addEvent(eventData: Omit<WetlandEvent, 'id' | 'registeredCount' | 'isRegistered'>): WetlandEvent {
-    const events = this.getEvents();
     const newEvent: WetlandEvent = {
       ...eventData,
       id: 'evt-' + Date.now(),
+      image: resolveMediaUrl(eventData.image),
       registeredCount: 0,
-      isRegistered: false
+      isRegistered: false,
     };
-    const updated = [newEvent, ...events];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(updated));
-    }
+    this.events = [newEvent, ...this.events];
+    this.notify();
+
+    apiFetch('/api/eventos', {
+      method: 'POST',
+      body: JSON.stringify(eventData),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
     return newEvent;
   }
 
   updateEvent(id: string, eventData: Partial<WetlandEvent>): WetlandEvent[] {
-    const events = this.getEvents();
-    const updated = events.map(e => e.id === id ? { ...e, ...eventData } : e);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(updated));
-    }
-    return updated;
+    this.events = this.events.map(e => (e.id === id ? { ...e, ...eventData } : e));
+    this.notify();
+
+    apiFetch(`/api/eventos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(eventData),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
+    return this.events;
   }
 
   deleteEvent(id: string) {
-    const events = this.getEvents().filter(e => e.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    }
+    this.events = this.events.filter(e => e.id !== id);
+    this.notify();
+
+    apiFetch(`/api/eventos/${id}`, { method: 'DELETE' })
+      .then(() => this.syncAll())
+      .catch(() => {});
   }
 
-  // --- Points of Interest & QR Totems (RF-QR-2 & RF-ADM-2) ---
+  // --- Points of Interest / Stations (PostgreSQL + PostGIS estacion) ---
   getPointsOfInterest(): PointOfInterest[] {
-    if (typeof window === 'undefined') return POINTS_OF_INTEREST;
-    const stored = localStorage.getItem(STORAGE_KEYS.POINTS_OF_INTEREST);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.POINTS_OF_INTEREST, JSON.stringify(POINTS_OF_INTEREST));
-      return POINTS_OF_INTEREST;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return POINTS_OF_INTEREST;
-    }
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.stations;
   }
 
   addPointOfInterest(poi: Omit<PointOfInterest, 'id'>): PointOfInterest {
-    const list = this.getPointsOfInterest();
     const newPoi: PointOfInterest = {
       ...poi,
-      id: 'poi-' + Date.now()
+      id: 'poi-' + Date.now(),
+      image: resolveMediaUrl(poi.image),
     };
-    const updated = [...list, newPoi];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.POINTS_OF_INTEREST, JSON.stringify(updated));
-    }
+    this.stations = [...this.stations, newPoi];
+    this.notify();
+
+    apiFetch('/api/estaciones', {
+      method: 'POST',
+      body: JSON.stringify(poi),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
     return newPoi;
   }
 
   updatePointOfInterest(id: string, data: Partial<PointOfInterest>): PointOfInterest[] {
-    const list = this.getPointsOfInterest();
-    const updated = list.map(p => p.id === id ? { ...p, ...data } : p);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.POINTS_OF_INTEREST, JSON.stringify(updated));
-    }
-    return updated;
+    this.stations = this.stations.map(p => (p.id === id ? { ...p, ...data } : p));
+    this.notify();
+
+    apiFetch(`/api/estaciones/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
+    return this.stations;
   }
 
   deletePointOfInterest(id: string) {
-    const list = this.getPointsOfInterest().filter(p => p.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.POINTS_OF_INTEREST, JSON.stringify(list));
-    }
+    this.stations = this.stations.filter(p => p.id !== id);
+    this.notify();
+
+    apiFetch(`/api/estaciones/${id}`, { method: 'DELETE' })
+      .then(() => this.syncAll())
+      .catch(() => {});
   }
 
-  // --- Species Catalog CRUD (RF-ADM-2 & RF-BIO-1) ---
+  // --- Species Catalog CRUD (PostgreSQL especie) ---
   getSpecies(): Species[] {
-    if (typeof window === 'undefined') return INITIAL_SPECIES;
-    const stored = localStorage.getItem(STORAGE_KEYS.SPECIES);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.SPECIES, JSON.stringify(INITIAL_SPECIES));
-      return INITIAL_SPECIES;
-    }
-    try {
-      const stale: Species[] = JSON.parse(stored);
-      // Replace the old placeholder Unsplash photos with the real species photos
-      let changed = false;
-      const parsed = stale.map(s => {
-        const initial = INITIAL_SPECIES.find(i => i.id === s.id);
-        if (initial && s.image.startsWith('https://images.unsplash.com/')) {
-          changed = true;
-          return { ...s, image: initial.image, imageCredit: initial.imageCredit };
-        }
-        return s;
-      });
-      // Merge new initial species (like newly added fungi) if not yet in stored list
-      const existingIds = new Set(parsed.map(s => s.id));
-      const missing = INITIAL_SPECIES.filter(s => !existingIds.has(s.id));
-      if (missing.length > 0 || changed) {
-        const merged = [...parsed, ...missing];
-        localStorage.setItem(STORAGE_KEYS.SPECIES, JSON.stringify(merged));
-        return merged;
-      }
-      return parsed;
-    } catch {
-      return INITIAL_SPECIES;
-    }
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.species;
   }
 
   addSpecies(speciesData: Omit<Species, 'id'>): Species {
-    const list = this.getSpecies();
     const newSpecies: Species = {
       ...speciesData,
-      id: 'sp-' + Date.now()
+      id: 'sp-' + Date.now(),
+      image: resolveMediaUrl(speciesData.image),
     };
-    const updated = [newSpecies, ...list];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SPECIES, JSON.stringify(updated));
-    }
+    this.species = [newSpecies, ...this.species];
+    this.notify();
+
+    apiFetch('/api/especies', {
+      method: 'POST',
+      body: JSON.stringify(speciesData),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
     return newSpecies;
   }
 
   updateSpecies(id: string, data: Partial<Species>): Species[] {
-    const list = this.getSpecies();
-    const updated = list.map(s => s.id === id ? { ...s, ...data } : s);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SPECIES, JSON.stringify(updated));
-    }
-    return updated;
+    this.species = this.species.map(s => (s.id === id ? { ...s, ...data } : s));
+    this.notify();
+
+    apiFetch(`/api/especies/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
+    return this.species;
   }
 
   deleteSpecies(id: string) {
-    const list = this.getSpecies().filter(s => s.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SPECIES, JSON.stringify(list));
-    }
+    this.species = this.species.filter(s => s.id !== id);
+    this.notify();
+
+    apiFetch(`/api/especies/${id}`, { method: 'DELETE' })
+      .then(() => this.syncAll())
+      .catch(() => {});
   }
 
-  // --- Sustainability & Donations (RF-MON-1) ---
+  // --- Donations (PostgreSQL donacion) ---
   getDonations(): DonationRecord[] {
-    if (typeof window === 'undefined') return [];
-    const stored = localStorage.getItem(STORAGE_KEYS.DONATIONS);
-    if (!stored) return [];
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [];
-    }
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.donations;
   }
 
   addDonation(record: Omit<DonationRecord, 'id' | 'date' | 'receiptNumber'>): DonationRecord {
-    const donations = this.getDonations();
     const newDonation: DonationRecord = {
       ...record,
       id: 'don-' + Date.now(),
       date: new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }),
-      receiptNumber: 'ANG-' + Math.floor(100000 + Math.random() * 900000)
+      receiptNumber: `ANG-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
     };
-    const updated = [newDonation, ...donations];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(updated));
-    }
+    this.donations = [newDonation, ...this.donations];
+    this.notify();
+
+    apiFetch<{ donation: DonationRecord }>('/api/donaciones', {
+      method: 'POST',
+      body: JSON.stringify(record),
+    })
+      .then(res => {
+        if (res?.donation) {
+          this.donations = [res.donation, ...this.donations.filter(d => d.id !== newDonation.id)];
+          this.notify();
+        }
+      })
+      .catch(() => {});
+
     return newDonation;
   }
 
-  // --- Ad-free Subscription & Sponsors (RF-MON-2) ---
   isAdFreeActive(): boolean {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(STORAGE_KEYS.AD_FREE) === 'true';
@@ -529,72 +725,70 @@ class StorageService {
   }
 
   getSponsorAds(): SponsorAd[] {
-    if (typeof window === 'undefined') return INITIAL_SPONSOR_ADS;
-    const stored = localStorage.getItem(STORAGE_KEYS.SPONSOR_ADS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.SPONSOR_ADS, JSON.stringify(INITIAL_SPONSOR_ADS));
-      return INITIAL_SPONSOR_ADS;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return INITIAL_SPONSOR_ADS;
-    }
+    return INITIAL_SPONSOR_ADS;
   }
 
-  // --- Moderation Tickets for Community Content (PDF 15-Sept-2026) ---
+  // --- Moderation Tickets (MongoDB feed_posts cola de moderación) ---
   getModerationTickets(): ModerationTicket[] {
-    if (typeof window === 'undefined') return INITIAL_MODERATION_TICKETS;
-    const stored = localStorage.getItem(STORAGE_KEYS.MODERATION_TICKETS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.MODERATION_TICKETS, JSON.stringify(INITIAL_MODERATION_TICKETS));
-      return INITIAL_MODERATION_TICKETS;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return INITIAL_MODERATION_TICKETS;
-    }
+    if (!this.initialized && typeof window !== 'undefined') this.syncAll();
+    return this.moderationTickets;
   }
 
   addModerationTicket(ticket: Omit<ModerationTicket, 'id' | 'submittedAt' | 'status'>): ModerationTicket {
-    const tickets = this.getModerationTickets();
     const newTicket: ModerationTicket = {
       ...ticket,
       id: 'tkt-' + Date.now(),
       submittedAt: 'Recién',
-      status: 'pendiente'
+      status: 'pendiente',
     };
-    const updated = [newTicket, ...tickets];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.MODERATION_TICKETS, JSON.stringify(updated));
-    }
+    this.moderationTickets = [newTicket, ...this.moderationTickets];
+    this.notify();
+
+    feedApi
+      .createPost({
+        type: ticket.type === 'foto_comunidad' ? 'photo_pin' : 'post',
+        ticketType: ticket.type,
+        title: ticket.title,
+        description: ticket.description,
+        imageUrl: ticket.imageUrl,
+        visitedPlace: ticket.locationName,
+      })
+      .then(() => this.syncAll())
+      .catch(() => {});
+
     return newTicket;
   }
 
   updateModerationTicket(id: string, updates: Partial<ModerationTicket>): ModerationTicket | null {
-    const tickets = this.getModerationTickets();
     let updatedTicket: ModerationTicket | null = null;
-    const updated = tickets.map(t => {
+    this.moderationTickets = this.moderationTickets.map(t => {
       if (t.id === id) {
         updatedTicket = { ...t, ...updates };
         return updatedTicket;
       }
       return t;
     });
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.MODERATION_TICKETS, JSON.stringify(updated));
+    this.notify();
+
+    if (updates.status === 'aprobado' || updates.status === 'rechazado') {
+      feedApi
+        .moderatePost(id, updates.status, updates.adminFeedback)
+        .then(() => this.syncAll())
+        .catch(() => {});
     }
+
     return updatedTicket;
   }
 
   deleteModerationTicket(id: string): void {
-    const tickets = this.getModerationTickets().filter(t => t.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.MODERATION_TICKETS, JSON.stringify(tickets));
-    }
+    this.moderationTickets = this.moderationTickets.filter(t => t.id !== id);
+    this.notify();
+
+    feedApi
+      .deletePost(id)
+      .then(() => this.syncAll())
+      .catch(() => {});
   }
 }
 
 export const storageService = new StorageService();
-

@@ -58,8 +58,8 @@ export const PWAInstallButton: React.FC = () => {
                 </button>
               </div>
               <p className="text-xs text-stone-600 space-y-2 leading-relaxed">
-                1. Toca el botón <strong>Compartir</strong> <span className="text-blue-600 font-bold">⎋</span> en la barra de Safari.<br />
-                2. Baja y presiona <strong>Agregar a pantalla de inicio</strong> 📲.<br />
+                1. Toca el botón <strong>Compartir</strong> en la barra inferior de Safari.<br />
+                2. Baja y presiona <strong>Agregar a pantalla de inicio</strong>.<br />
                 3. Tendrás acceso offline a los senderos y fauna en el humedal sin conexión.
               </p>
               <button

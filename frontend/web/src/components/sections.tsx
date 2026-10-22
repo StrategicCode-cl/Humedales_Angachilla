@@ -47,6 +47,13 @@ const AdminDashboard = dynamic(() => import('./AdminDashboard').then(m => m.Admi
   ssr: false,
   loading: SectionLoading,
 });
+const ComplementaryAppsSection = dynamic(
+  () => import('./ComplementaryAppsSection').then(m => m.ComplementaryAppsSection),
+  {
+    ssr: false,
+    loading: SectionLoading,
+  }
+);
 
 export function AvisosSection() {
   const app = useApp();
@@ -58,6 +65,7 @@ export function AvisosSection() {
       onCloseCreateModal={app.closeCreateNotice}
       initialCreateCategory={app.createNoticeCategory}
       onOpenDonations={app.openDonations}
+      onGoToMapLocation={app.goToMapLocation}
     />
   );
 }
@@ -106,6 +114,10 @@ export function EspeciesSection() {
 export function BuzonSection() {
   const app = useApp();
   return <SuggestionsPanel currentUser={app.currentUser} onOpenAuth={app.openAuth} />;
+}
+
+export function AppsSection() {
+  return <ComplementaryAppsSection />;
 }
 
 export function AdminSection() {
