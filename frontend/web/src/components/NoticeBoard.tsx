@@ -262,15 +262,15 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
       {/* Top 3 Horizontal Navigation Buttons inside Feed: Feed, Acerca de, Calendario */}
       <div className="bg-white/95 backdrop-blur-md border-b border-stone-200/90 sticky top-0 z-30 shadow-xs">
         <div className="max-w-xl lg:max-w-[58rem] mx-auto px-3 lg:px-4 py-2 lg:py-2.5 overflow-x-auto scrollbar-none">
-          <div className="grid grid-cols-3 gap-1.5 bg-stone-100 p-1 rounded-2xl border border-stone-200/80">
+          <div className="grid grid-cols-3 gap-1 bg-stone-200/70 p-0.5 rounded-md">
             <button
               type="button"
               id="top-btn-feed"
               onClick={() => setSubSection('feed')}
-              className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition-all whitespace-nowrap ${
+              className={`h-9 px-3 rounded text-sm font-semibold transition-colors whitespace-nowrap ${
                 subSection === 'feed'
-                  ? 'bg-emerald-900 text-white shadow-xs'
-                  : 'text-stone-700 hover:text-stone-950'
+                  ? 'bg-white text-stone-950 ring-1 ring-stone-300'
+                  : 'text-stone-600 hover:text-stone-950'
               }`}
             >
               Feed
@@ -279,10 +279,10 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
               type="button"
               id="top-btn-acerca"
               onClick={() => setSubSection('acerca')}
-              className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition-all whitespace-nowrap ${
+              className={`h-9 px-3 rounded text-sm font-semibold transition-colors whitespace-nowrap ${
                 subSection === 'acerca'
-                  ? 'bg-emerald-900 text-white shadow-xs'
-                  : 'text-stone-700 hover:text-stone-950'
+                  ? 'bg-white text-stone-950 ring-1 ring-stone-300'
+                  : 'text-stone-600 hover:text-stone-950'
               }`}
             >
               Acerca de
@@ -291,10 +291,10 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
               type="button"
               id="top-btn-calendario"
               onClick={() => setSubSection('calendario')}
-              className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition-all whitespace-nowrap ${
+              className={`h-9 px-3 rounded text-sm font-semibold transition-colors whitespace-nowrap ${
                 subSection === 'calendario'
-                  ? 'bg-emerald-900 text-white shadow-xs'
-                  : 'text-stone-700 hover:text-stone-950'
+                  ? 'bg-white text-stone-950 ring-1 ring-stone-300'
+                  : 'text-stone-600 hover:text-stone-950'
               }`}
             >
               Calendario

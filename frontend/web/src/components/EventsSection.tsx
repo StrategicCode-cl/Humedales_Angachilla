@@ -5,14 +5,10 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
-  Clock,
   List,
   MapPin,
-  Route,
-  Users,
   X,
   CheckCircle2,
-  Sparkles,
 } from 'lucide-react';
 import { WetlandEvent, User } from '../types';
 import { storageService } from '../services/storageService';
@@ -28,11 +24,11 @@ interface EventsSectionProps {
 
 const CATEGORY: Record<WetlandEvent['category'], string> = {
   avistamiento: 'Avistamiento de aves',
-  educativo: 'Educación Ambiental',
-  fotografia: 'Fotografía de Naturaleza',
-  kayak: 'Navegación en Kayak',
-  limpieza: 'Conservación y Minga',
-  comunitario: 'Encuentro Comunitario',
+  educativo: 'Educación ambiental',
+  fotografia: 'Fotografía de naturaleza',
+  kayak: 'Navegación en kayak',
+  limpieza: 'Conservación y minga',
+  comunitario: 'Encuentro comunitario',
 };
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -48,6 +44,7 @@ const startMinutes = (time: string) => {
   const m = time.match(/(\d{1,2}):(\d{2})/);
   return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
 };
+const fillRatio = (evt: WetlandEvent) => Math.min(100, (evt.registeredCount / Math.max(1, evt.capacity)) * 100);
 
 // Monday-first grid of 5 or 6 weeks covering the month
 function monthGrid(month: Date): Date[] {
@@ -58,6 +55,19 @@ function monthGrid(month: Date): Date[] {
   const cells = Math.ceil((offset + daysInMonth) / 7) * 7;
   return Array.from({ length: cells }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
 }
+
+// "18 de 25 inscritos · quedan 7", or why there is no place
+function capacityText(evt: WetlandEvent, past: boolean) {
+  if (past) return `Finalizada · ${evt.registeredCount} de ${evt.capacity} asistentes`;
+  const left = Math.max(0, evt.capacity - evt.registeredCount);
+  return `${evt.registeredCount} de ${evt.capacity} inscritos · ${left === 0 ? 'sin cupos' : `quedan ${left}`}`;
+}
+
+const CapacityBar: React.FC<{ evt: WetlandEvent; past: boolean }> = ({ evt, past }) => (
+  <div className="h-1 bg-stone-200" aria-hidden="true">
+    <div className={`h-full ${past ? 'bg-stone-400' : 'bg-emerald-700'}`} style={{ width: `${fillRatio(evt)}%` }} />
+  </div>
+);
 
 export const EventsSection: React.FC<EventsSectionProps> = ({
   onGoToMapLocation,
@@ -107,14 +117,15 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
     }
   }, [activeEventModal]);
 
+  // The dialog opens once its activity is in state
+  useEffect(() => {
+    const dialog = eventDialogRef.current;
+    if (activeEventModal && dialog && !dialog.open) dialog.showModal();
+  }, [activeEventModal]);
+
   const openEventDetail = (evt: WetlandEvent) => {
     setActiveEventModal(evt);
     setModalPhotoIdx(0);
-    setTimeout(() => {
-      if (eventDialogRef.current && !eventDialogRef.current.open) {
-        eventDialogRef.current.showModal();
-      }
-    }, 0);
   };
 
   const closeEventDetail = () => {
@@ -159,6 +170,7 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
   const nextKey = datedKeys.find(k => k > `${monthPrefix}-31`);
   const prevKey = [...datedKeys].reverse().find(k => k < `${monthPrefix}-01`);
   const nextAfterSelected = datedKeys.find(k => k > selectedKey);
+  const upcomingKey = datedKeys.find(k => k >= todayKey);
   const selectedEvents = byDay.get(selectedKey) ?? [];
 
   const goTo = (key: string) => {
@@ -199,6 +211,25 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
     events.some(e => e.category === c)
   );
 
+  // List view: activities in date order, grouped by month; undated ones last
+  const listGroups = useMemo(() => {
+    const groups: { label: string; items: { evt: WetlandEvent; key: string | null }[] }[] = [];
+    const sorted = filtered
+      .map(evt => ({ evt, key: eventDateKey(evt.date) }))
+      .sort((a, b) => {
+        if (!a.key || !b.key) return a.key ? -1 : b.key ? 1 : 0;
+        return a.key.localeCompare(b.key) || startMinutes(a.evt.time) - startMinutes(b.evt.time);
+      });
+    sorted.forEach(item => {
+      const d = item.key ? parseEventDate(item.key) : null;
+      const label = d ? monthLabel(d) : 'Sin fecha definida';
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) last.items.push(item);
+      else groups.push({ label, items: [item] });
+    });
+    return groups;
+  }, [filtered]);
+
   // Build trail photos gallery for the active event modal
   const modalPhotos = useMemo(() => {
     if (!activeEventModal) return [];
@@ -223,113 +254,85 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
     return list;
   }, [activeEventModal, stations]);
 
-  // Auto-advancing slow carousel for event trail photos in popup
-  useEffect(() => {
-    if (!activeEventModal || modalPhotos.length <= 1) return;
-    const timer = setInterval(() => {
-      setModalPhotoIdx(prev => (prev + 1) % modalPhotos.length);
-    }, 3800);
-    return () => clearInterval(timer);
-  }, [activeEventModal, modalPhotos.length]);
+  const summary =
+    monthEvents > 0
+      ? `${monthEvents === 1 ? '1 actividad' : `${monthEvents} actividades`} en ${monthName(month)}.`
+      : `Sin actividades en ${monthName(month)}.`;
+  const nextLine = upcomingKey
+    ? ` La próxima es el ${formatEventDate(upcomingKey, { withYear: false }).toLowerCase()}.`
+    : '';
+
+  const modalKey = activeEventModal ? eventDateKey(activeEventModal.date) : null;
+  const modalPast = modalKey ? modalKey < todayKey : false;
+  const modalFull = activeEventModal ? activeEventModal.registeredCount >= activeEventModal.capacity : false;
+
+  const viewButton = (mode: 'calendario' | 'lista', label: string, Icon: typeof List) => (
+    <button
+      type="button"
+      onClick={() => setViewMode(mode)}
+      aria-pressed={viewMode === mode}
+      className={`h-8 px-3 rounded inline-flex items-center gap-1.5 text-sm font-medium transition-colors ${
+        viewMode === mode
+          ? 'bg-white text-stone-950 ring-1 ring-stone-300'
+          : 'text-stone-600 hover:text-stone-950'
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+    </button>
+  );
 
   return (
     <div className={embedded ? 'w-full' : 'max-w-6xl mx-auto px-4 sm:px-8 pt-6 sm:pt-9 pb-24'}>
-      {/* Header Banner with Organic Texture */}
-      <header
-        className="rounded-3xl p-5 sm:p-6 text-white shadow-sm border border-emerald-900/30 mb-5"
-        style={{
-          backgroundImage: `linear-gradient(to right, rgba(6, 46, 34, 0.93), rgba(15, 62, 47, 0.86)), url(${resolveMediaUrl('/api/media/slug/tex-4')})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
-              <Sparkles className="w-3 h-3" />
-              Programa de Actividades de la Reserva
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
-              Calendario y Lista de Actividades
-            </h2>
-            <p className="mt-0.5 text-xs sm:text-sm text-emerald-100/90">
-              {monthEvents > 0
-                ? `${monthEvents === 1 ? '1 actividad programada' : `${monthEvents} actividades programadas`} en ${monthName(month)}. Toca cualquier actividad para abrir su ficha completa, fotos del sendero e inscripciones.`
-                : `Explora las actividades comunitarias, recorridos guiados y talleres en el humedal.`}
-            </p>
+      <header className="mb-4 sm:mb-5 flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-stone-950">Calendario de actividades</h2>
+          <p className="mt-1 text-sm sm:text-base text-stone-700">
+            {summary}
+            {nextLine}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex p-0.5 rounded-md bg-stone-200/80" role="group" aria-label="Forma de ver las actividades">
+            {viewButton('calendario', 'Calendario', CalendarIcon)}
+            {viewButton('lista', 'Lista', List)}
           </div>
 
-          {/* Two-View Toggle (Calendario vs Lista) + Category Filter */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <div
-              className="inline-flex items-center bg-black/25 p-1 rounded-2xl border border-white/15"
-              role="group"
-              aria-label="Modo de visualización de actividades"
+          {categoriesInData.length > 1 && (
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value as WetlandEvent['category'] | 'todas')}
+              aria-label="Filtrar por tipo de actividad"
+              className="h-9 px-2.5 rounded-md bg-white border border-stone-300 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
             >
-              <button
-                type="button"
-                id="btn-vista-calendario"
-                onClick={() => setViewMode('calendario')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
-                  viewMode === 'calendario'
-                    ? 'bg-white text-emerald-950 shadow-xs'
-                    : 'text-emerald-100 hover:text-white'
-                }`}
-              >
-                <CalendarIcon className="w-3.5 h-3.5" />
-                <span>Vista Calendario</span>
-              </button>
-              <button
-                type="button"
-                id="btn-vista-lista"
-                onClick={() => setViewMode('lista')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
-                  viewMode === 'lista'
-                    ? 'bg-white text-emerald-950 shadow-xs'
-                    : 'text-emerald-100 hover:text-white'
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-                <span>Vista Lista</span>
-              </button>
-            </div>
-
-            {categoriesInData.length > 1 && (
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value as WetlandEvent['category'] | 'todas')}
-                aria-label="Filtrar por tipo de actividad"
-                className="h-9 px-3 rounded-xl bg-white/95 text-stone-900 border border-white/20 text-xs font-bold focus:outline-none"
-              >
-                <option value="todas">Todas las categorías</option>
-                {categoriesInData.map(c => (
-                  <option key={c} value={c}>
-                    {CATEGORY[c]}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+              <option value="todas">Todas las actividades</option>
+              {categoriesInData.map(c => (
+                <option key={c} value={c}>
+                  {CATEGORY[c]}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </header>
 
-      {/* --- VIEW 1: VISTA CALENDARIO --- */}
       {viewMode === 'calendario' && (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_23rem] gap-4 lg:gap-6 items-start">
-          {/* Month Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-4 lg:gap-5 items-start">
+          {/* Month grid */}
           <section
-            className="bg-white border border-stone-200 rounded-3xl overflow-hidden shadow-xs"
+            className="bg-white border border-stone-200 rounded-md overflow-hidden"
             aria-label={`Calendario de ${monthLabel(month)}`}
           >
-            <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-3.5 bg-stone-50/70">
-              <h3 className="text-base sm:text-lg font-extrabold text-stone-950" aria-live="polite">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">
+              <h3 className="text-base font-semibold text-stone-950" aria-live="polite">
                 {monthLabel(month)}
               </h3>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => goTo(todayKey)}
-                  className="h-8 px-3 rounded-xl text-xs font-bold text-stone-800 bg-white border border-stone-200 hover:bg-stone-100"
+                  className="h-8 px-3 rounded-md text-sm font-medium text-stone-800 border border-stone-300 hover:bg-stone-50"
                 >
                   Hoy
                 </button>
@@ -337,7 +340,7 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                   type="button"
                   onClick={() => shiftMonth(-1)}
                   aria-label="Mes anterior"
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-stone-700 hover:bg-stone-200/70"
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-stone-700 hover:bg-stone-100"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -345,19 +348,16 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                   type="button"
                   onClick={() => shiftMonth(1)}
                   aria-label="Mes siguiente"
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-stone-700 hover:bg-stone-200/70"
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-stone-700 hover:bg-stone-100"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <div
-              className="grid grid-cols-7 border-t border-stone-200 text-[11px] font-extrabold uppercase tracking-wider text-stone-500 bg-stone-50/40"
-              aria-hidden="true"
-            >
+            <div className="grid grid-cols-7 text-xs font-medium text-stone-500" aria-hidden="true">
               {WEEKDAYS.map(d => (
-                <div key={d} className="px-1 sm:px-2.5 py-2 text-center sm:text-left">
+                <div key={d} className="px-1 sm:px-2 py-2 text-center sm:text-left">
                   {d}
                 </div>
               ))}
@@ -367,6 +367,7 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
               {monthGrid(month).map((day, i) => {
                 const key = dateKey(day);
                 const inMonth = day.getMonth() === month.getMonth();
+                const weekend = i % 7 >= 5;
                 const dayEvents = byDay.get(key) ?? [];
                 const isToday = key === todayKey;
                 const isSelected = key === selectedKey;
@@ -376,77 +377,66 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                     ? `, ${dayEvents.length === 1 ? '1 actividad' : `${dayEvents.length} actividades`}`
                     : ''
                 }`;
+                const select = () => {
+                  if (inMonth) setSelectedKey(key);
+                  else goTo(key);
+                  if (dayEvents.length === 1) openEventDetail(dayEvents[0]);
+                };
                 return (
                   <div
                     key={key}
-                    onClick={() => {
-                      if (inMonth) setSelectedKey(key);
-                      else goTo(key);
-                      if (dayEvents.length === 1) {
-                        openEventDetail(dayEvents[0]);
-                      }
-                    }}
+                    onClick={select}
                     role="button"
                     tabIndex={0}
                     onKeyDown={e => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        if (inMonth) setSelectedKey(key);
-                        else goTo(key);
-                        if (dayEvents.length === 1) openEventDetail(dayEvents[0]);
+                        select();
                       }
                     }}
                     aria-label={label}
-                    className={`relative min-h-16 sm:min-h-26 p-1 sm:p-2 text-left flex flex-col items-center sm:items-stretch gap-1 border-stone-200 transition-colors cursor-pointer
+                    aria-pressed={isSelected}
+                    className={`relative min-h-14 sm:min-h-24 p-1 sm:p-1.5 flex flex-col items-center sm:items-stretch gap-1 border-stone-200 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stone-900
                       ${i % 7 !== 6 ? 'border-r' : ''} ${i >= 7 ? 'border-t' : ''}
+                      ${isToday ? 'shadow-[inset_0_2px_0_#047857]' : ''}
                       ${
                         isSelected
-                          ? 'bg-emerald-50/70'
-                          : inMonth
-                          ? 'hover:bg-stone-50'
-                          : 'bg-stone-50/60 hover:bg-stone-100'
+                          ? 'bg-stone-100'
+                          : !inMonth
+                          ? 'bg-stone-50 hover:bg-stone-100'
+                          : weekend
+                          ? 'bg-stone-50/60 hover:bg-stone-100/70'
+                          : 'hover:bg-stone-50'
                       }`}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <span
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs sm:text-sm tabular-nums
-                          ${
-                            isSelected
-                              ? 'bg-emerald-900 text-white font-bold'
-                              : isToday
-                              ? 'ring-2 ring-emerald-700 text-emerald-950 font-bold'
-                              : ''
-                          }
-                          ${
-                            !isSelected && !isToday
-                              ? inMonth
-                                ? isPast
-                                  ? 'text-stone-400'
-                                  : 'text-stone-900 font-semibold'
-                                : 'text-stone-300'
-                              : ''
-                          }`}
-                      >
-                        {day.getDate()}
-                      </span>
-                      {dayEvents.length > 0 && (
-                        <span className="hidden sm:inline-block text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded-full">
-                          {dayEvents.length}
-                        </span>
-                      )}
-                    </div>
+                    <span
+                      className={`h-6 min-w-6 px-1 rounded-sm self-center sm:self-start flex items-center justify-center text-sm tabular-nums
+                        ${
+                          isSelected
+                            ? 'bg-stone-900 text-white font-semibold'
+                            : isToday
+                            ? 'text-emerald-800 font-semibold'
+                            : !inMonth
+                            ? 'text-stone-300'
+                            : isPast
+                            ? 'text-stone-400'
+                            : 'text-stone-900'
+                        }`}
+                    >
+                      {day.getDate()}
+                    </span>
 
-                    {/* Phone: indicator pill */}
+                    {/* Phone: one square mark per activity */}
                     {dayEvents.length > 0 && (
-                      <span className="sm:hidden flex flex-col items-center gap-0.5 mt-0.5" aria-hidden="true">
-                        <span className="px-1.5 py-0.5 rounded-full bg-emerald-800 text-white text-[9px] font-bold leading-none">
-                          {dayEvents.length} act.
-                        </span>
+                      <span className="sm:hidden flex gap-0.5" aria-hidden="true">
+                        {dayEvents.slice(0, 3).map(evt => (
+                          <span key={evt.id} className={`w-1.5 h-1.5 ${isPast ? 'bg-stone-400' : 'bg-emerald-700'}`} />
+                        ))}
                       </span>
                     )}
 
-                    {/* Larger screens: clickable activity chips that open the popup modal */}
-                    <div className="hidden sm:flex flex-col gap-1 min-w-0 w-full mt-0.5">
+                    {/* Larger screens: the activities themselves */}
+                    <div className="hidden sm:flex flex-col gap-0.5 min-w-0 w-full">
                       {dayEvents.slice(0, 2).map(evt => (
                         <button
                           key={evt.id}
@@ -456,21 +446,18 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                             setSelectedKey(key);
                             openEventDetail(evt);
                           }}
-                          className={`w-full text-left truncate text-[11px] font-bold leading-5 px-2 py-0.5 rounded-lg transition-all ${
+                          className={`w-full truncate text-left text-xs leading-5 pl-1.5 pr-1 border-l-2 rounded-r-sm transition-colors ${
                             isPast
-                              ? 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                              : 'bg-emerald-800 text-white hover:bg-emerald-700 shadow-2xs'
+                              ? 'border-stone-300 bg-stone-100 text-stone-500 hover:bg-stone-200'
+                              : 'border-emerald-700 bg-emerald-50 text-emerald-950 hover:bg-emerald-100'
                           }`}
-                          title={`${evt.title} (${evt.registeredCount}/${evt.capacity} inscritos) — Haz clic para ver más información`}
+                          title={evt.title}
                         >
-                          <span className="tabular-nums opacity-85">{evt.time.slice(0, 5)}</span>{' '}
-                          {evt.title}
+                          <span className="font-semibold tabular-nums">{evt.time.slice(0, 5)}</span> {evt.title}
                         </button>
                       ))}
                       {dayEvents.length > 2 && (
-                        <span className="text-[11px] font-bold text-emerald-800 px-1.5">
-                          +{dayEvents.length - 2} más
-                        </span>
+                        <span className="text-xs font-medium text-stone-600 px-1.5">+{dayEvents.length - 2} más</span>
                       )}
                     </div>
                   </div>
@@ -479,111 +466,76 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
             </div>
 
             {monthEvents === 0 && (nextKey || prevKey) && (
-              <div className="px-4 py-3 border-t border-stone-200 text-sm text-stone-700 bg-stone-50">
-                {nextKey ? (
-                  <button
-                    type="button"
-                    onClick={() => goTo(nextKey)}
-                    className="font-bold text-emerald-900 underline underline-offset-2"
-                  >
-                    Ir a la próxima actividad: {formatEventDate(nextKey)}
-                  </button>
-                ) : (
-                  prevKey && (
-                    <button
-                      type="button"
-                      onClick={() => goTo(prevKey)}
-                      className="font-bold text-emerald-900 underline underline-offset-2"
-                    >
-                      Ver la última actividad: {formatEventDate(prevKey)}
-                    </button>
-                  )
-                )}
+              <div className="px-4 py-3 border-t border-stone-200 text-sm">
+                <button
+                  type="button"
+                  onClick={() => goTo((nextKey ?? prevKey)!)}
+                  className="font-medium text-stone-900 underline underline-offset-2 hover:text-emerald-800"
+                >
+                  {nextKey
+                    ? `Ir a la próxima actividad: ${formatEventDate(nextKey)}`
+                    : `Ver la última actividad: ${formatEventDate(prevKey!)}`}
+                </button>
               </div>
             )}
           </section>
 
-          {/* Selected Day Panel */}
-          <section className="lg:sticky lg:top-20 bg-white border border-stone-200 rounded-3xl p-4 sm:p-5 shadow-xs" aria-labelledby="dia-titulo">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div>
-                <h3 id="dia-titulo" className="text-base font-extrabold text-stone-950">
-                  {formatEventDate(selectedKey, { withYear: false })}
-                </h3>
-                <p className="text-xs font-semibold text-stone-500 mt-0.5">
-                  {selectedEvents.length === 0
-                    ? 'Sin actividades programadas este día'
-                    : selectedEvents.length === 1
-                    ? '1 actividad programada · Toca para abrir detalle'
-                    : `${selectedEvents.length} actividades programadas`}
-                  {selectedKey === todayKey && ' · Hoy'}
-                </p>
-              </div>
+          {/* Selected day */}
+          <section className="lg:sticky lg:top-20 bg-white border border-stone-200 rounded-md" aria-labelledby="dia-titulo">
+            <div className="px-4 py-3 border-b border-stone-200">
+              <h3 id="dia-titulo" className="text-base font-semibold text-stone-950">
+                {formatEventDate(selectedKey, { withYear: false })}
+                {selectedKey === todayKey && <span className="font-normal text-stone-500"> · hoy</span>}
+              </h3>
+              <p className="text-sm text-stone-600">
+                {selectedEvents.length === 0
+                  ? 'Sin actividades este día'
+                  : selectedEvents.length === 1
+                  ? '1 actividad'
+                  : `${selectedEvents.length} actividades`}
+              </p>
             </div>
 
             {selectedEvents.length > 0 ? (
-              <ul className="mt-3.5 space-y-3">
+              <ul className="divide-y divide-stone-200">
                 {selectedEvents.map(evt => {
                   const past = selectedKey < todayKey;
-                  const full = evt.registeredCount >= evt.capacity;
-                  const left = Math.max(0, evt.capacity - evt.registeredCount);
                   return (
                     <li
                       key={evt.id}
                       id={`event-card-${evt.id}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => openEventDetail(evt)}
-                      className="group rounded-2xl border border-stone-200 hover:border-emerald-500 bg-stone-50/60 hover:bg-white overflow-hidden transition-all cursor-pointer shadow-2xs hover:shadow-md"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openEventDetail(evt);
+                        }
+                      }}
+                      className="group flex gap-3 p-4 cursor-pointer hover:bg-stone-50 transition-colors focus-visible:outline-none focus-visible:bg-stone-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stone-900"
                     >
-                      <div className="relative h-32 w-full bg-stone-200 overflow-hidden">
-                        <img
-                          src={resolveMediaUrl(evt.image)}
-                          alt={evt.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-                        <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-950/90 text-white">
+                      <img
+                        src={resolveMediaUrl(evt.image)}
+                        alt=""
+                        loading="lazy"
+                        className="w-16 h-16 rounded-sm object-cover bg-stone-200 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-stone-600">
+                          <span className="font-semibold text-stone-900 tabular-nums">{evt.time}</span> ·{' '}
                           {CATEGORY[evt.category]}
-                        </span>
-                        <span className="absolute bottom-2 left-2.5 right-2.5 text-white font-extrabold text-sm leading-snug line-clamp-1">
-                          {evt.title}
-                        </span>
-                      </div>
-
-                      <div className="p-3.5">
-                        <div className="flex items-center justify-between text-xs text-stone-600 font-semibold">
-                          <span className="inline-flex items-center gap-1 text-emerald-900 font-bold">
-                            <Clock className="w-3.5 h-3.5" />
-                            {evt.time}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-stone-700 font-bold">
-                            <Users className="w-3.5 h-3.5 text-emerald-700" />
-                            {evt.registeredCount}/{evt.capacity} inscritos
-                          </span>
-                        </div>
-
-                        <p className="mt-1.5 text-xs text-stone-600 flex items-center gap-1 truncate">
-                          <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                          <span className="truncate">{evt.locationName}</span>
                         </p>
-
+                        <h4 className="mt-0.5 text-[15px] font-semibold leading-snug text-stone-950 group-hover:text-emerald-900 line-clamp-2">
+                          {evt.title}
+                        </h4>
+                        <p className="mt-0.5 text-sm text-stone-600 truncate">{evt.locationName}</p>
                         <div className="mt-2.5">
-                          <div className="h-1.5 rounded-full bg-stone-200 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${past ? 'bg-stone-400' : 'bg-emerald-700'}`}
-                              style={{
-                                width: `${Math.min(100, (evt.registeredCount / Math.max(1, evt.capacity)) * 100)}%`,
-                              }}
-                            />
-                          </div>
-                          <div className="mt-1.5 flex items-center justify-between text-[11px]">
-                            <span className="font-bold text-emerald-800">
-                              {full ? 'Cupos completos' : `Quedan ${left} cupos`}
-                            </span>
-                            <span className="font-extrabold text-stone-900 group-hover:text-emerald-800 underline underline-offset-2">
-                              Ver fotos e inscribirme ›
-                            </span>
-                          </div>
+                          <CapacityBar evt={evt} past={past} />
+                          <p className="mt-1.5 text-xs text-stone-600 tabular-nums">
+                            {capacityText(evt, past)}
+                            {evt.isRegistered && !past && <span className="font-semibold text-emerald-800"> · Inscrito</span>}
+                          </p>
                         </div>
                       </div>
                     </li>
@@ -591,20 +543,16 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                 })}
               </ul>
             ) : (
-              <div className="mt-3.5 px-4 py-6 text-center text-xs sm:text-sm text-stone-600 border border-dashed border-stone-300 rounded-2xl bg-stone-50/50">
-                <p className="font-semibold text-stone-700">No hay actividades en esta fecha.</p>
-                {nextAfterSelected ? (
+              <div className="m-4 rounded-md border border-dashed border-stone-300 px-4 py-4 text-sm text-stone-700">
+                <p>No hay actividades programadas para esta fecha.</p>
+                {nextAfterSelected && (
                   <button
                     type="button"
                     onClick={() => goTo(nextAfterSelected)}
-                    className="mt-2 inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-emerald-900 text-white text-xs font-bold hover:bg-emerald-800"
+                    className="mt-3 h-9 px-3 rounded-md bg-white border border-stone-300 hover:bg-stone-50 text-stone-900 text-sm font-medium"
                   >
-                    <span>Ir a la próxima: {formatEventDate(nextAfterSelected, { withYear: false })}</span>
+                    Ir a la próxima: {formatEventDate(nextAfterSelected, { withYear: false })}
                   </button>
-                ) : (
-                  <p className="mt-1 text-xs text-stone-500">
-                    Selecciona un día marcado en verde en el calendario o cambia a Vista Lista.
-                  </p>
                 )}
               </div>
             )}
@@ -612,190 +560,146 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
         </div>
       )}
 
-      {/* --- VIEW 2: VISTA LISTA --- */}
       {viewMode === 'lista' && (
-        <div className="space-y-4">
-          {filtered.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-stone-200 p-8 text-center">
-              <p className="text-sm font-bold text-stone-700">No hay actividades en esta categoría.</p>
-            </div>
+        <section className="bg-white border border-stone-200 rounded-md overflow-hidden" aria-label="Lista de actividades">
+          {listGroups.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-stone-700">No hay actividades de este tipo.</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filtered.map(evt => {
-                const key = eventDateKey(evt.date);
-                const past = key ? key < todayKey : false;
-                const full = evt.registeredCount >= evt.capacity;
-                const left = Math.max(0, evt.capacity - evt.registeredCount);
-
-                return (
-                  <article
-                    key={evt.id}
-                    onClick={() => openEventDetail(evt)}
-                    className="group bg-white rounded-3xl border border-stone-200/90 hover:border-emerald-500 overflow-hidden shadow-xs hover:shadow-lg transition-all cursor-pointer flex flex-col sm:flex-row"
-                  >
-                    <div className="relative sm:w-48 h-44 sm:h-auto bg-stone-200 shrink-0 overflow-hidden">
-                      <img
-                        src={resolveMediaUrl(evt.image)}
-                        alt={evt.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                      />
-                      <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-950/90 text-white">
-                        {CATEGORY[evt.category]}
-                      </span>
-                    </div>
-
-                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-emerald-800">
-                          <span>{key ? formatEventDate(key, { withYear: false }) : evt.date}</span>
-                          <span>·</span>
-                          <span className="tabular-nums">{evt.time}</span>
-                        </div>
-                        <h3 className="mt-1 text-base font-black text-stone-950 group-hover:text-emerald-900 leading-snug">
-                          {evt.title}
-                        </h3>
-                        <p className="mt-1 text-xs font-semibold text-stone-600 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                          <span>
-                            {evt.locationName}
-                            {evt.routeName ? ` · ${evt.routeName}` : ''}
+            listGroups.map(group => (
+              <div key={group.label}>
+                <h3 className="px-4 py-2 bg-stone-50 border-b border-stone-200 text-sm font-semibold text-stone-700">
+                  {group.label}
+                </h3>
+                <ul className="divide-y divide-stone-200 border-b border-stone-200 last:border-b-0">
+                  {group.items.map(({ evt, key }) => {
+                    const d = key ? parseEventDate(key) : null;
+                    const past = key ? key < todayKey : false;
+                    return (
+                      <li key={evt.id}>
+                        <button
+                          type="button"
+                          onClick={() => openEventDetail(evt)}
+                          className="group w-full text-left grid grid-cols-[3rem_minmax(0,1fr)] sm:grid-cols-[3.5rem_6rem_minmax(0,1fr)_11rem] gap-3 sm:gap-4 px-4 py-4 hover:bg-stone-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stone-900"
+                        >
+                          <span className={`flex flex-col ${past ? 'text-stone-400' : 'text-stone-950'}`}>
+                            <span className="text-2xl font-semibold leading-none tabular-nums">{d ? d.getDate() : '—'}</span>
+                            <span className="mt-1 text-xs text-stone-500">
+                              {d ? d.toLocaleDateString('es-CL', { weekday: 'short' }) : ''}
+                            </span>
                           </span>
-                        </p>
-                        <p className="mt-2 text-xs text-stone-600 line-clamp-2 leading-relaxed">
-                          {evt.description}
-                        </p>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-stone-100">
-                        <div className="flex items-center justify-between text-xs tabular-nums mb-1.5">
-                          <span className="font-extrabold text-stone-900">
-                            {evt.registeredCount} de {evt.capacity} inscritos
-                          </span>
-                          <span className="font-bold text-emerald-800">
-                            {full ? 'Sin cupos' : `Quedan ${left} cupos`}
-                          </span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-stone-200 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${past ? 'bg-stone-400' : 'bg-emerald-700'}`}
-                            style={{
-                              width: `${Math.min(100, (evt.registeredCount / Math.max(1, evt.capacity)) * 100)}%`,
-                            }}
+                          <img
+                            src={resolveMediaUrl(evt.image)}
+                            alt=""
+                            loading="lazy"
+                            className="hidden sm:block w-24 h-[4.5rem] rounded-sm object-cover bg-stone-200"
                           />
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-bold text-stone-500 truncate">
-                            Organiza: {evt.organizer}
+                          <span className="min-w-0">
+                            <span className="block text-sm text-stone-600">
+                              <span className="font-semibold text-stone-900 tabular-nums">{evt.time}</span> · {CATEGORY[evt.category]}
+                            </span>
+                            <span className="mt-0.5 block text-[15px] font-semibold leading-snug text-stone-950 group-hover:text-emerald-900">
+                              {evt.title}
+                            </span>
+                            <span className="mt-0.5 block text-sm text-stone-600">
+                              {evt.locationName}
+                              {evt.routeName ? ` · ${evt.routeName}` : ''}
+                            </span>
+                            <span className="sm:hidden mt-2 block">
+                              <CapacityBar evt={evt} past={past} />
+                              <span className="mt-1.5 block text-xs text-stone-600 tabular-nums">{capacityText(evt, past)}</span>
+                            </span>
                           </span>
-                          <span className="px-3 py-1.5 rounded-xl bg-emerald-900 text-white text-xs font-extrabold shrink-0 group-hover:bg-emerald-800">
-                            Ver detalle e inscribirme
+                          <span className="hidden sm:block self-center">
+                            <CapacityBar evt={evt} past={past} />
+                            <span className="mt-1.5 block text-xs text-stone-600 tabular-nums">{capacityText(evt, past)}</span>
+                            {evt.isRegistered && !past && (
+                              <span className="mt-0.5 block text-xs font-semibold text-emerald-800">Inscrito</span>
+                            )}
                           </span>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
           )}
-        </div>
+        </section>
       )}
 
-      {/* --- ACTIVITY DETAIL POPUP MODAL (<dialog>) --- */}
+      {/* Activity detail */}
       <dialog
         ref={eventDialogRef}
         closedby="any"
         onClose={() => setActiveEventModal(null)}
         aria-labelledby="event-modal-title"
-        className="m-auto w-[calc(100%-1.5rem)] max-w-xl rounded-3xl bg-white text-stone-900 p-0 shadow-2xl border border-stone-200 backdrop:bg-black/65 backdrop:backdrop-blur-xs overflow-hidden"
+        className="m-auto w-[calc(100%-1.5rem)] max-w-xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg bg-white text-stone-900 p-0 shadow-2xl backdrop:bg-black/60"
       >
         {activeEventModal && (
           <div>
-            {/* Top Trail Photos Carousel inside Activity Popup */}
-            <div className="relative h-56 sm:h-64 w-full bg-stone-900 overflow-hidden">
+            <div className="relative h-56 sm:h-64 w-full bg-stone-900">
               <img
                 src={modalPhotos[modalPhotoIdx] || resolveMediaUrl(activeEventModal.image)}
                 alt={activeEventModal.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30" />
-
               <button
                 type="button"
                 onClick={closeEventDetail}
-                aria-label="Cerrar detalle de actividad"
-                className="absolute top-3.5 right-3.5 w-9 h-9 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md transition-colors"
+                aria-label="Cerrar"
+                className="absolute top-3 right-3 w-9 h-9 rounded-md bg-white/90 hover:bg-white text-stone-900 flex items-center justify-center transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
-
-              <div className="absolute top-3.5 left-3.5 flex flex-wrap items-center gap-1.5">
-                <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-900/90 text-white backdrop-blur-md">
-                  {CATEGORY[activeEventModal.category]}
-                </span>
-                {activeEventModal.routeName && (
-                  <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-white/90 text-emerald-950 backdrop-blur-md inline-flex items-center gap-1">
-                    <Route className="w-3 h-3 text-emerald-800" />
-                    {activeEventModal.routeName}
-                  </span>
-                )}
-              </div>
 
               {modalPhotos.length > 1 && (
                 <>
                   <button
                     type="button"
-                    onClick={() =>
-                      setModalPhotoIdx((modalPhotoIdx - 1 + modalPhotos.length) % modalPhotos.length)
-                    }
-                    aria-label="Fotografía anterior del sendero"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center"
+                    onClick={() => setModalPhotoIdx((modalPhotoIdx - 1 + modalPhotos.length) % modalPhotos.length)}
+                    aria-label="Foto anterior"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-black/55 hover:bg-black/75 text-white flex items-center justify-center"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setModalPhotoIdx((modalPhotoIdx + 1) % modalPhotos.length)}
-                    aria-label="Siguiente fotografía del sendero"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center"
+                    aria-label="Foto siguiente"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-black/55 hover:bg-black/75 text-white flex items-center justify-center"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-5 h-5" />
                   </button>
-                  <div className="absolute bottom-14 right-4 px-2.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold">
-                    Foto del sendero {modalPhotoIdx + 1} / {modalPhotos.length}
-                  </div>
+                  <span className="absolute bottom-3 right-3 px-2 py-0.5 rounded-sm bg-black/65 text-white text-xs tabular-nums">
+                    {modalPhotoIdx + 1} / {modalPhotos.length}
+                  </span>
                 </>
               )}
-
-              <div className="absolute bottom-3.5 left-4 right-4 text-white">
-                <p className="text-xs font-bold text-emerald-200">
-                  {eventDateKey(activeEventModal.date)
-                    ? formatEventDate(eventDateKey(activeEventModal.date)!)
-                    : activeEventModal.date}{' '}
-                  · {activeEventModal.time}
-                </p>
-                <h3 id="event-modal-title" className="text-lg sm:text-xl font-black leading-tight mt-0.5">
-                  {activeEventModal.title}
-                </h3>
-              </div>
             </div>
 
-            {/* Body */}
-            <div className="p-5 sm:p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-              {/* Thumbnail strip if multiple station trail photos exist */}
+            <div className="p-5 sm:p-6">
+              <p className="text-sm font-medium text-emerald-800">
+                {modalKey ? formatEventDate(modalKey) : activeEventModal.date} · {activeEventModal.time}
+              </p>
+              <h3 id="event-modal-title" className="mt-1 text-xl font-semibold leading-snug text-stone-950">
+                {activeEventModal.title}
+              </h3>
+              <p className="mt-1 text-sm text-stone-600">
+                {CATEGORY[activeEventModal.category]}
+                {activeEventModal.routeName ? ` · ${activeEventModal.routeName}` : ''}
+              </p>
+
               {modalPhotos.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-none">
                   {modalPhotos.map((photoUrl, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => setModalPhotoIdx(idx)}
-                      className={`relative w-16 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
-                        idx === modalPhotoIdx
-                          ? 'border-emerald-700 scale-105 shadow-xs'
-                          : 'border-transparent opacity-70 hover:opacity-100'
+                      aria-label={`Foto ${idx + 1}`}
+                      aria-pressed={idx === modalPhotoIdx}
+                      className={`w-16 h-12 rounded-sm overflow-hidden shrink-0 transition-opacity ${
+                        idx === modalPhotoIdx ? 'ring-2 ring-stone-900 ring-offset-1' : 'opacity-60 hover:opacity-100'
                       }`}
                     >
                       <img src={photoUrl} alt="" className="w-full h-full object-cover" />
@@ -804,66 +708,50 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-start gap-2.5">
-                  <MapPin className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-stone-500 block">Punto de encuentro</span>
-                    <span className="font-extrabold text-stone-900">{activeEventModal.locationName}</span>
-                  </div>
+              <dl className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 py-4 border-y border-stone-200 text-sm">
+                <div>
+                  <dt className="text-stone-500">Punto de encuentro</dt>
+                  <dd className="mt-0.5 font-medium text-stone-900">{activeEventModal.locationName}</dd>
                 </div>
-                <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-start gap-2.5">
-                  <Users className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-stone-500 block">Organiza</span>
-                    <span className="font-extrabold text-stone-900">{activeEventModal.organizer}</span>
-                  </div>
+                <div>
+                  <dt className="text-stone-500">Organiza</dt>
+                  <dd className="mt-0.5 font-medium text-stone-900">{activeEventModal.organizer}</dd>
                 </div>
+              </dl>
+
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-stone-900">Descripción</h4>
+                <p className="mt-1 text-[15px] leading-relaxed text-stone-700">{activeEventModal.description}</p>
               </div>
 
-              <div className="text-sm text-stone-700 leading-relaxed">
-                <h4 className="text-xs font-black uppercase tracking-wider text-stone-400 mb-1">
-                  Descripción de la Actividad
-                </h4>
-                <p>{activeEventModal.description}</p>
-              </div>
-
-              {/* Registration / Cupos Card */}
-              <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-black text-emerald-950 flex items-center gap-1.5">
-                    <Users className="w-4 h-4 text-emerald-800" />
-                    <span>
-                      {activeEventModal.registeredCount} de {activeEventModal.capacity} personas inscritas
-                    </span>
+              <div className="mt-5">
+                <div className="flex items-baseline justify-between gap-3 text-sm tabular-nums">
+                  <span className="font-medium text-stone-900">
+                    {activeEventModal.registeredCount} de {activeEventModal.capacity} personas inscritas
                   </span>
-                  <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-white text-emerald-900 border border-emerald-200">
-                    {activeEventModal.registeredCount >= activeEventModal.capacity
-                      ? 'Cupos agotados'
+                  <span className="text-stone-600">
+                    {modalPast
+                      ? 'Finalizada'
+                      : modalFull
+                      ? 'Sin cupos'
                       : `Quedan ${Math.max(0, activeEventModal.capacity - activeEventModal.registeredCount)} cupos`}
                   </span>
                 </div>
-                <div className="mt-2 h-2 rounded-full bg-emerald-200/70 overflow-hidden">
+                <div className="mt-2 h-1.5 bg-stone-200" aria-hidden="true">
                   <div
-                    className="h-full rounded-full bg-emerald-700 transition-all duration-300"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        (activeEventModal.registeredCount / Math.max(1, activeEventModal.capacity)) * 100
-                      )}%`,
-                    }}
+                    className={`h-full transition-[width] duration-300 ${modalPast ? 'bg-stone-400' : 'bg-emerald-700'}`}
+                    style={{ width: `${fillRatio(activeEventModal)}%` }}
                   />
                 </div>
-                {activeEventModal.isRegistered && (
-                  <p className="mt-2 text-xs font-bold text-emerald-800 flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                    <span>Tienes un cupo reservado en esta actividad.</span>
+                {activeEventModal.isRegistered && !modalPast && (
+                  <p className="mt-2 text-sm font-medium text-emerald-800 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Tienes un cupo reservado en esta actividad.
                   </p>
                 )}
               </div>
 
-              {/* Footer Actions */}
-              <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5">
+              <div className="mt-6 pt-4 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2.5">
                 {onGoToMapLocation && (
                   <button
                     type="button"
@@ -873,19 +761,27 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                       closeEventDetail();
                       onGoToMapLocation(coords, rId);
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-extrabold inline-flex items-center gap-1.5 transition-colors"
+                    className="h-10 px-4 rounded-md border border-stone-300 hover:bg-stone-50 text-stone-900 text-sm font-medium inline-flex items-center gap-1.5 transition-colors"
                   >
-                    <MapPin className="w-4 h-4 text-emerald-700" />
-                    <span>Ver ubicación en el Mapa</span>
+                    <MapPin className="w-4 h-4 text-stone-500" />
+                    Ver en el mapa
                   </button>
                 )}
 
-                <div className="flex items-center gap-2 ml-auto">
-                  {activeEventModal.isRegistered ? (
+                <div className="ml-auto">
+                  {modalPast ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="h-10 px-4 rounded-md bg-stone-100 text-stone-500 text-sm font-medium"
+                    >
+                      Actividad finalizada
+                    </button>
+                  ) : activeEventModal.isRegistered ? (
                     <button
                       type="button"
                       onClick={() => handleToggleRegister(activeEventModal.id)}
-                      className="px-4 py-2.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-900 text-xs font-extrabold transition-colors"
+                      className="h-10 px-4 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-900 text-sm font-medium transition-colors"
                     >
                       Inscrito · Cancelar cupo
                     </button>
@@ -893,14 +789,10 @@ export const EventsSection: React.FC<EventsSectionProps> = ({
                     <button
                       type="button"
                       onClick={() => handleToggleRegister(activeEventModal.id)}
-                      disabled={activeEventModal.registeredCount >= activeEventModal.capacity}
-                      className="px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 disabled:bg-stone-300 text-white text-xs font-extrabold shadow-sm transition-all"
+                      disabled={modalFull}
+                      className="h-10 px-4 rounded-md bg-emerald-900 hover:bg-emerald-800 active:bg-emerald-950 disabled:bg-stone-200 disabled:text-stone-500 text-white text-sm font-semibold transition-colors"
                     >
-                      {activeEventModal.registeredCount >= activeEventModal.capacity
-                        ? 'Sin cupos disponibles'
-                        : currentUser
-                        ? 'Inscribirme en la actividad'
-                        : 'Inicia sesión para inscribirte'}
+                      {modalFull ? 'Sin cupos disponibles' : currentUser ? 'Inscribirme' : 'Inicia sesión para inscribirte'}
                     </button>
                   )}
                 </div>
