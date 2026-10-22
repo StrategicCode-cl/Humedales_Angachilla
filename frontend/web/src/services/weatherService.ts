@@ -8,50 +8,50 @@ const LONGITUDE = -73.2385;
 export function interpretWeatherCode(code: number, isDay: boolean = true): { label: string; icon: string } {
   switch (code) {
     case 0:
-      return { label: isDay ? 'Despejado' : 'Noche despejada', icon: isDay ? '☀️' : '🌙' };
+      return { label: isDay ? 'Despejado' : 'Noche despejada', icon: isDay ? 'sun' : 'moon' };
     case 1:
-      return { label: isDay ? 'Mayormente despejado' : 'Mayormente despejado', icon: isDay ? '🌤️' : '🌙' };
+      return { label: isDay ? 'Mayormente despejado' : 'Mayormente despejado', icon: isDay ? 'cloud-sun' : 'cloud-moon' };
     case 2:
-      return { label: 'Parcialmente nublado', icon: '⛅' };
+      return { label: 'Parcialmente nublado', icon: 'cloud-sun' };
     case 3:
-      return { label: 'Nublado / Cubierto', icon: '☁️' };
+      return { label: 'Nublado / Cubierto', icon: 'cloud' };
     case 45:
     case 48:
-      return { label: 'Niebla sobre el humedal', icon: '🌫️' };
+      return { label: 'Niebla sobre el humedal', icon: 'cloud-fog' };
     case 51:
     case 53:
     case 55:
-      return { label: 'Llovizna valdiviana', icon: '🌦️' };
+      return { label: 'Llovizna valdiviana', icon: 'cloud-drizzle' };
     case 56:
     case 57:
-      return { label: 'Llovizna helada', icon: '🌨️' };
+      return { label: 'Llovizna helada', icon: 'cloud-snow' };
     case 61:
-      return { label: 'Lluvia ligera', icon: '🌧️' };
+      return { label: 'Lluvia ligera', icon: 'cloud-rain' };
     case 63:
-      return { label: 'Lluvia moderada', icon: '🌧️' };
+      return { label: 'Lluvia moderada', icon: 'cloud-rain' };
     case 65:
-      return { label: 'Lluvia intensa valdiviana', icon: '🌧️' };
+      return { label: 'Lluvia intensa valdiviana', icon: 'cloud-rain' };
     case 66:
     case 67:
-      return { label: 'Lluvia helada', icon: '🧊' };
+      return { label: 'Lluvia helada', icon: 'cloud-snow' };
     case 71:
     case 73:
     case 75:
-      return { label: 'Aguanieve o nieve', icon: '❄️' };
+      return { label: 'Aguanieve o nieve', icon: 'cloud-snow' };
     case 80:
     case 81:
     case 82:
-      return { label: 'Chubascos de agua', icon: '🌧️' };
+      return { label: 'Chubascos de agua', icon: 'cloud-rain' };
     case 85:
     case 86:
-      return { label: 'Chubascos de aguanieve', icon: '🌨️' };
+      return { label: 'Chubascos de aguanieve', icon: 'cloud-snow' };
     case 95:
-      return { label: 'Tormenta eléctrica', icon: '⛈️' };
+      return { label: 'Tormenta eléctrica', icon: 'cloud-lightning' };
     case 96:
     case 99:
-      return { label: 'Tormenta con granizo', icon: '⛈️' };
+      return { label: 'Tormenta con granizo', icon: 'cloud-lightning' };
     default:
-      return { label: 'Nublado', icon: '☁️' };
+      return { label: 'Nublado', icon: 'cloud' };
   }
 }
 

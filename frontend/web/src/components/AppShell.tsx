@@ -13,13 +13,12 @@ import {
   Heart,
   Home,
   Lightbulb,
-  Pin,
-  Plus,
   QrCode,
+  Smartphone,
   X
 } from 'lucide-react';
 import { User, Notice } from '../types';
-import { authApi } from '../lib/api';
+import { authApi, resolveMediaUrl } from '../lib/api';
 import { pathForTab, tabForPath } from '../lib/tabs';
 import { Navbar } from './Navbar';
 import { DesktopSidebar } from './DesktopSidebar';
@@ -29,11 +28,14 @@ import { InfographicsModal } from './InfographicsModal';
 import { DonationModal } from './DonationModal';
 import { OfflineIndicator } from './OfflineIndicator';
 
+import { LandingPage } from './LandingPage';
+
 interface AppContextValue {
   currentUser: User | null;
   setCurrentTab: (tab: string) => void;
   openAuth: () => void;
   openDonations: () => void;
+  openLanding: () => void;
   openQRWithCode: (code: string) => void;
   openQR: () => void;
   logout: () => void;
@@ -55,13 +57,14 @@ export function useApp(): AppContextValue {
   return ctx;
 }
 
-// 5 Primary Instagram-style Bottom Nav items
-const instagramNavItems = [
-  { id: 'avisos', label: 'Inicio', icon: Home },
-  { id: 'mapa', label: 'Mapa & GPS', icon: Compass },
-  { id: 'crear', label: 'Crear', icon: Plus, isAction: true },
-  { id: 'eventos', label: 'Calendario', icon: Calendar },
-  { id: 'galeria', label: 'Pines', icon: Pin },
+// 5 Primary Bottom Nav items acordados:
+// 1. Feed, 2. Galería, 3. Recorrer Mapa (central con botón flotante), 4. Especies, 5. Apps
+const bottomNavItems = [
+  { id: 'avisos', label: 'Feed', icon: Home },
+  { id: 'galeria', label: 'Galería', icon: Camera },
+  { id: 'mapa', label: 'Recorrer Mapa', icon: Compass, isMapCenter: true },
+  { id: 'catalogo', label: 'Especies', icon: BookOpen },
+  { id: 'apps', label: 'Apps', icon: Smartphone },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -69,6 +72,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const currentTab = tabForPath(pathname);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Landing Page state
+  const [showLanding, setShowLanding] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const isRoot = window.location.pathname === '/' || window.location.pathname === '';
+    const landed = sessionStorage.getItem('angachilla_landed');
+    return isRoot && landed !== 'true';
+  });
 
   // Modals & Panels state
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -116,6 +127,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setCurrentTab,
     openAuth: () => setIsAuthOpen(true),
     openDonations: () => setIsDonationOpen(true),
+    openLanding: () => setShowLanding(true),
     openQRWithCode: handleOpenQRWithCode,
     openQR: () => {
       setPreselectedQRCode(null);
@@ -132,10 +144,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     closeCreatePin: () => setIsCreatePinTriggered(false),
   };
 
+  // Render Landing Page if active
+  if (showLanding) {
+    return (
+      <AppContext.Provider value={contextValue}>
+        <LandingPage
+          currentUser={currentUser}
+          onEnterApp={(targetTab) => {
+            sessionStorage.setItem('angachilla_landed', 'true');
+            setShowLanding(false);
+            if (targetTab) setCurrentTab(targetTab);
+          }}
+          onOpenAuth={() => setIsAuthOpen(true)}
+        />
+        {isAuthOpen && (
+          <AuthModal
+            isOpen={isAuthOpen}
+            onClose={() => setIsAuthOpen(false)}
+            currentUser={currentUser}
+            onUserChange={(user: User) => {
+              setCurrentUser(user);
+              setIsAuthOpen(false);
+              sessionStorage.setItem('angachilla_landed', 'true');
+              setShowLanding(false);
+            }}
+          />
+        )}
+      </AppContext.Provider>
+    );
+  }
+
   return (
     <AppContext.Provider value={contextValue}>
-      <div className="w-full min-h-screen flex flex-col bg-stone-50">
-        {/* Top Navbar Header */}
+      <div
+        className="w-full min-h-screen flex flex-col bg-stone-50"
+        style={{
+          backgroundImage: `linear-gradient(rgba(250, 250, 249, 0.94), rgba(245, 245, 244, 0.96)), url(${resolveMediaUrl('/api/media/slug/tex-5')})`,
+          backgroundSize: '420px',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        {/* Top Navbar Header + Institutional Logos Sub-Bar */}
         <Navbar
           setCurrentTab={setCurrentTab}
           currentUser={currentUser}
@@ -172,35 +221,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
 
-        {/* --- INSTAGRAM MOBILE BOTTOM NAVIGATION BAR --- */}
+        {/* --- 5-ITEM MOBILE BOTTOM NAVIGATION BAR (ACTA REUNIÓN 3 APP) --- */}
         <nav
           id="instagram-bottom-dock"
           className="fixed lg:hidden bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200/90 px-2 py-1.5 flex items-center justify-around shadow-2xl select-none"
         >
-          {instagramNavItems.map(item => {
+          {bottomNavItems.map(item => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
 
-            if (item.isAction) {
+            if (item.isMapCenter) {
               return (
-                <button
+                <Link
                   key={item.id}
-                  id="mobile-action-button"
-                  onClick={() => setIsCreateMiniPanelOpen(prev => !prev)}
-                  className="flex flex-col items-center -mt-5 focus:outline-none"
-                  title="Acciones rápidas"
+                  id="mobile-map-center-button"
+                  href={pathForTab(item.id)}
+                  className="flex flex-col items-center -mt-6 focus:outline-none group"
+                  title="Recorrer Mapa Interactivo de las 9 Estaciones"
                 >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white transition-all active:scale-95 ${
-                    isCreateMiniPanelOpen
-                      ? 'bg-stone-900 shadow-stone-950/40 ring-2 ring-emerald-400/50'
-                      : 'bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 shadow-emerald-950/30'
-                  }`}>
-                    <Icon className={`w-6 h-6 stroke-[2.5] transition-transform duration-200 ${isCreateMiniPanelOpen ? 'rotate-45' : ''}`} />
+                  <div
+                    className={`w-13 h-13 rounded-full flex items-center justify-center p-2.5 text-white shadow-lg border-2 border-white transition-all active:scale-95 ${
+                      isActive
+                        ? 'bg-emerald-900 shadow-emerald-950/40 ring-2 ring-emerald-400'
+                        : 'bg-gradient-to-tr from-emerald-800 via-emerald-700 to-teal-600 shadow-emerald-950/30'
+                    }`}
+                  >
+                    <img
+                      src={resolveMediaUrl('/api/media/slug/svg-logo-boton-mapa')}
+                      alt="Recorrer Mapa"
+                      className="w-7 h-7 object-contain brightness-0 invert"
+                    />
                   </div>
-                  <span className={`text-[10px] font-bold mt-0.5 ${isCreateMiniPanelOpen ? 'text-stone-900' : 'text-emerald-700'}`}>
+                  <span
+                    className={`text-[10px] font-extrabold mt-0.5 leading-none ${
+                      isActive ? 'text-emerald-900' : 'text-emerald-800'
+                    }`}
+                  >
                     {item.label}
                   </span>
-                </button>
+                </Link>
               );
             }
 
@@ -209,14 +268,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.id}
                 id={`tab-btn-${item.id}`}
                 href={pathForTab(item.id)}
-                className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition-all ${
+                className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
                   isActive
-                    ? 'text-stone-950 font-black scale-105'
-                    : 'text-stone-400 hover:text-stone-700'
+                    ? 'text-emerald-900 font-black scale-105'
+                    : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-                <span className={`text-[10px] mt-0.5 leading-none ${isActive ? 'font-bold text-stone-900' : 'font-medium'}`}>
+                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.9]'}`} />
+                <span className={`text-[10px] mt-0.5 leading-none ${isActive ? 'font-bold text-emerald-950' : 'font-medium'}`}>
                   {item.label}
                 </span>
               </Link>
@@ -236,11 +295,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div
             id="mini-actions-panel"
-            className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-48 lg:left-24 lg:translate-x-0 w-[90%] max-w-xs z-50 bg-stone-900/90 text-white backdrop-blur-xl rounded-3xl p-3 shadow-2xl border border-white/10 animate-in zoom-in-95 fade-in slide-in-from-bottom-3 duration-150 select-none"
+            className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-48 lg:left-24 lg:translate-x-0 w-[90%] max-w-xs z-50 bg-stone-900/95 text-white backdrop-blur-xl rounded-3xl p-3.5 shadow-2xl border border-white/10 animate-in zoom-in-95 fade-in slide-in-from-bottom-3 duration-150 select-none"
           >
             <div className="flex items-center justify-between pb-1.5 mb-1 px-1">
               <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400">
-                Acciones
+                Acciones Rápidas
               </span>
               <button
                 onClick={() => setIsCreateMiniPanelOpen(false)}
@@ -255,7 +314,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <MiniPanelButton
                 id="mini-btn-pin"
                 icon={<Camera className="w-7 h-7 text-rose-400 group-hover:scale-110 transition-transform" />}
-                label="Subir Pin"
+                label="Subir Foto"
                 onClick={() => {
                   setIsCreateMiniPanelOpen(false);
                   setIsCreatePinTriggered(true);
@@ -275,7 +334,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <MiniPanelButton
                 id="mini-btn-notice"
                 icon={<Bell className="w-7 h-7 text-emerald-400 group-hover:scale-110 transition-transform" />}
-                label="Noticia"
+                label="Publicar Post"
                 onClick={() => {
                   setIsCreateMiniPanelOpen(false);
                   setCreateNoticeCategory('comunidad');
@@ -284,12 +343,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }}
               />
               <MiniPanelButton
-                id="mini-btn-catalog"
-                icon={<BookOpen className="w-7 h-7 text-teal-400 group-hover:scale-110 transition-transform" />}
-                label="Especies"
+                id="mini-btn-events"
+                icon={<Calendar className="w-7 h-7 text-teal-400 group-hover:scale-110 transition-transform" />}
+                label="Calendario"
                 onClick={() => {
                   setIsCreateMiniPanelOpen(false);
-                  setCurrentTab('catalogo');
+                  setCurrentTab('eventos');
                 }}
               />
               <MiniPanelButton
@@ -312,9 +371,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
               <MiniPanelButton
                 id="mini-btn-donations"
-                className="col-span-3 sm:col-span-1"
+                className="col-span-3"
                 icon={<Heart className="w-7 h-7 text-rose-400 fill-rose-500/30 group-hover:scale-110 transition-transform" />}
-                label="Donar Aporte"
+                label="Donar Aporte al Santuario"
                 onClick={() => {
                   setIsCreateMiniPanelOpen(false);
                   setIsDonationOpen(true);

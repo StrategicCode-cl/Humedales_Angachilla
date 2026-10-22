@@ -1,24 +1,33 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, Calendar, ChevronRight, Clock, Compass, Heart, MessageSquarePlus } from 'lucide-react';
 import { WetlandEvent } from '../types';
 import { storageService } from '../services/storageService';
+import { ecosistemaApi } from '../lib/api';
 import { pathForTab } from '../lib/tabs';
 import { useApp } from './AppShell';
 import { formatEventDateShort } from '../lib/eventDates';
 
 const quickLinks = [
-  { id: 'mapa', label: 'Senderos y GPS', hint: 'Rutas, tótems y navegación', icon: Compass },
-  { id: 'catalogo', label: 'Biodiversidad', hint: 'Flora y fauna del humedal', icon: BookOpen },
+  { id: 'mapa', label: 'Senderos y GPS', hint: 'Rutas, estaciones y navegación', icon: Compass },
+  { id: 'catalogo', label: 'Guía de Especies', hint: 'Fauna, Flora y Reino Fungi', icon: BookOpen },
   { id: 'sugerencias', label: 'Buzón ciudadano', hint: 'Ideas y reportes', icon: MessageSquarePlus },
 ];
 
 // Columna lateral del inicio, visible solo en pantallas grandes (lg+).
 export const HomeSidebar: React.FC = () => {
   const app = useApp();
-  const [events] = useState<WetlandEvent[]>(() => storageService.getEvents().slice(0, 3));
+  const [events, setEvents] = useState<WetlandEvent[]>(() => storageService.getEvents().slice(0, 3));
+
+  useEffect(() => {
+    ecosistemaApi.getEvents()
+      .then((list: WetlandEvent[]) => {
+        if (list.length > 0) setEvents(list.slice(0, 3));
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <aside className="hidden lg:block">

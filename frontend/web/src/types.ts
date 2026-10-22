@@ -9,27 +9,40 @@ export interface User {
   createdAt: string;
 }
 
-export type SpeciesCategory = 
-  | 'ave_acuatica' 
-  | 'ave_bosque' 
-  | 'mamifero' 
-  | 'anfibio' 
-  | 'arbol_arbusto' 
+export type SpeciesCategory =
+  | 'ave_acuatica'
+  | 'ave_bosque'
+  | 'mamifero'
+  | 'anfibio'
+  | 'arbol_arbusto'
   | 'planta_acuatica'
   | 'hongo';
 
-export type ConservationStatus = 
+export type ConservationStatus =
   | 'En Peligro Crítico'
   | 'En Peligro'
   | 'Vulnerable'
   | 'Casi Amenazada'
   | 'Preocupación Menor';
 
+export type SpeciesKingdom = 'Fauna' | 'Flora' | 'Reino Fungi' | 'Fungi';
+
+export interface SpeciesStationRef {
+  id: string;
+  code: string;
+  name: string;
+  coordinates: [number, number];
+  routeId?: string;
+}
+
 export interface Species {
   id: string;
+  slug?: string;
   commonName: string;
   mapudungunName?: string;
   scientificName: string;
+  kingdom?: SpeciesKingdom;
+  group?: string;
   category: SpeciesCategory;
   conservationStatus: ConservationStatus;
   statusColor: string;
@@ -37,6 +50,9 @@ export interface Species {
   description: string;
   funFact: string;
   image: string;
+  illustrationUrl?: string;
+  photoUrl?: string;
+  stations?: (string | SpeciesStationRef)[];
   imageCredit?: {
     author: string;
     license: string;
@@ -93,30 +109,68 @@ export interface HumedalRoute {
   checkpoints: RouteCheckpoint[];
 }
 
+export interface StationPhoto {
+  id: string;
+  mediaId?: string;
+  title: string;
+  description?: string;
+  url: string;
+  order?: number;
+}
+
 export interface PointOfInterest {
   id: string;
+  code?: string;
+  slug?: string;
   name: string;
+  subtitle?: string;
   category: 'mirador' | 'pasarela' | 'totem_qr' | 'muelle' | 'torre' | 'bano_ecologico';
   coordinates: [number, number];
   description: string;
+  rules?: string[];
+  norms?: string[];
   qrCode: string;
   image: string;
+  gallery?: string[];
+  routeId?: string;
+  order?: number;
+  photos?: StationPhoto[];
+  species?: Species[];
   speciesIds?: string[];
   soundKey?: string;
 }
 
+export interface FeedComment {
+  id?: string;
+  author: string;
+  authorName?: string;
+  authorAvatar?: string;
+  text: string;
+  date: string;
+}
+
 export interface Notice {
   id: string;
+  type?: 'post' | 'photo_pin' | 'official';
   title: string;
   summary: string;
   fullText: string;
   image: string;
-  category: 'alerta' | 'limpieza' | 'taller' | 'biodiversidad' | 'comunidad';
+  category: 'alerta' | 'limpieza' | 'taller' | 'biodiversidad' | 'comunidad' | 'oficial';
   date: string;
   author: string;
+  authorAvatar?: string;
+  visitedPlace?: string;
+  stationCodigo?: string;
+  routeSlug?: string;
   pinned?: boolean;
   approved?: boolean;
   isCommunity?: boolean;
+  likes?: number;
+  likedByMe?: boolean;
+  isSaved?: boolean;
+  commentsCount?: number;
+  comments?: FeedComment[];
 }
 
 export interface WetlandEvent {
@@ -129,6 +183,7 @@ export interface WetlandEvent {
   coordinates: [number, number];
   routeId: string;
   routeName: string;
+  stationCode?: string;
   category: 'avistamiento' | 'limpieza' | 'educativo' | 'fotografia' | 'kayak' | 'comunitario';
   capacity: number;
   registeredCount: number;
@@ -153,6 +208,7 @@ export interface CommunityPhoto {
   id: string;
   title: string;
   visitedPlace: string;
+  stationCodigo?: string;
   imageUrl: string;
   authorName: string;
   authorEmail: string;
@@ -162,10 +218,25 @@ export interface CommunityPhoto {
   likedByMe?: boolean;
   isSaved?: boolean;
   approved: boolean;
+  status?: 'pendiente' | 'aprobado' | 'rechazado';
   description: string;
   tags?: string[];
   aspectRatio?: 'tall' | 'square' | 'wide';
   commentsCount?: number;
+  comments?: FeedComment[];
+}
+
+export interface OfficialGalleryPhoto {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  stationId: string;
+  stationCode: string;
+  stationName: string;
+  coordinates: [number, number];
+  routeId: string;
+  createdAt: string;
 }
 
 export interface InfographicPoster {
@@ -220,8 +291,8 @@ export interface WetlandWeatherData {
   weatherLabel: string;
   isDay: boolean;
   updatedAt: string;
-  fetchedAt?: string; // ISO de la consulta a la API
-  isCached?: boolean; // datos guardados de una consulta anterior (sin conexión)
+  fetchedAt?: string;
+  isCached?: boolean;
   dailyForecast: DayForecast[];
   wetlandAlerts: WetlandWeatherAlert[];
 }
@@ -272,5 +343,3 @@ export interface ModerationTicket {
   reviewedBy?: string;
   reviewedAt?: string;
 }
-
-

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, ChevronRight } from 'lucide-react';
 import { useApp } from './AppShell';
 import { storageService } from '../services/storageService';
+import { feedApi } from '../lib/api';
 import { pathForTab } from '../lib/tabs';
 import { formatEventDate } from '../lib/eventDates';
 import { DonationRecord, Suggestion, User } from '../types';
@@ -80,9 +81,17 @@ export const ProfilePage: React.FC = () => {
   const user = app.currentUser;
   const email = user?.email.toLowerCase();
 
-  // Everything below is read from this device's storage on each render; a change re-renders
+  // Everything below is read from storage + synced with PostgreSQL & MongoDB
   const [, setVersion] = useState(0);
   const refresh = () => setVersion(v => v + 1);
+
+  useEffect(() => {
+    window.addEventListener('angachilla:sync', refresh);
+    if (user) {
+      feedApi.getMyActivity().then(() => refresh()).catch(() => {});
+    }
+    return () => window.removeEventListener('angachilla:sync', refresh);
+  }, [user]);
 
   const events = storageService.getEvents().filter(e => e.isRegistered);
   const savedIds = storageService.getSavedNoticeIds();
