@@ -1,24 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  CloudMoon,
   CloudRain,
+  CloudSnow,
   CloudSun,
+  Moon,
   Sun,
-  Wind,
-  Droplets,
-  AlertTriangle,
-  CheckCircle2,
-  RefreshCw,
   ChevronDown,
-  ChevronUp,
-  Thermometer,
-  ShieldAlert,
-  Info,
-  Waves,
-  Footprints,
-  Compass,
   X
 } from 'lucide-react';
 import { WetlandWeatherData, WetlandWeatherAlert } from '../types';
@@ -28,356 +23,298 @@ interface WetlandWeatherWidgetProps {
   onFocusCoordinates?: (coords: [number, number]) => void;
 }
 
+const REFRESH_MS = 15 * 60 * 1000;
+
+const SEVERITY: Record<WetlandWeatherAlert['severity'], { label: string; dot: string; rank: number }> = {
+  warning: { label: 'Alerta', dot: 'bg-rose-600', rank: 0 },
+  caution: { label: 'Precaución', dot: 'bg-amber-500', rank: 1 },
+  info: { label: 'Información', dot: 'bg-sky-600', rank: 2 },
+  good: { label: 'Recomendación', dot: 'bg-emerald-600', rank: 3 }
+};
+
+const CARDINALS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+const cardinal = (deg: number) => CARDINALS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+
+const PHONE_QUERY = '(max-width: 639px)';
+const subscribePhone = (cb: () => void) => {
+  const mq = window.matchMedia(PHONE_QUERY);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+};
+
+const decimal = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 });
+
+function WeatherIcon({ code, isDay = true, className }: { code: number; isDay?: boolean; className: string }) {
+  const props = { className, strokeWidth: 1.75, 'aria-hidden': true } as const;
+  if (code === 0) return isDay ? <Sun {...props} /> : <Moon {...props} />;
+  if (code === 1 || code === 2) return isDay ? <CloudSun {...props} /> : <CloudMoon {...props} />;
+  if (code === 45 || code === 48) return <CloudFog {...props} />;
+  if ([51, 53, 55, 56, 57].includes(code)) return <CloudDrizzle {...props} />;
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return <CloudRain {...props} />;
+  if ([71, 73, 75, 85, 86].includes(code)) return <CloudSnow {...props} />;
+  if (code >= 95) return <CloudLightning {...props} />;
+  return <Cloud {...props} />;
+}
+
+function freshness(data: WetlandWeatherData) {
+  if (!data.fetchedAt) return `a las ${data.updatedAt}`;
+  const at = new Date(data.fetchedAt);
+  const time = at.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+  if (at.toDateString() === new Date().toDateString()) return `a las ${time}`;
+  return `el ${at.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} a las ${time}`;
+}
+
 export const WetlandWeatherWidget: React.FC<WetlandWeatherWidgetProps> = () => {
   const [weather, setWeather] = useState<WetlandWeatherData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'alerts' | 'forecast'>('alerts');
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const isPhone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
 
-  const loadWeatherData = async () => {
+  const loadWeatherData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchWetlandWeather();
-      setWeather(data);
-    } catch (err) {
-      console.error('Error fetching weather:', err);
+      setWeather(await fetchWetlandWeather());
+      setFailed(false);
+    } catch {
+      setFailed(true);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadWeatherData();
-    // Auto-refresh every 15 minutes
-    const interval = setInterval(loadWeatherData, 15 * 60 * 1000);
-    return () => clearInterval(interval);
   }, []);
 
-  if (!weather && loading) {
-    return (
-      <div
-        id="weather-widget-loading"
-        className="bg-stone-900/90 backdrop-blur-md border border-stone-700/60 rounded-2xl px-3.5 py-2 text-stone-200 text-xs flex items-center space-x-2 shadow-xl"
-      >
-        <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-        <span>Consultando clima del humedal...</span>
+  useEffect(() => {
+    // First load and a refresh every 15 minutes; the state updates land after the request
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadWeatherData();
+    const interval = setInterval(loadWeatherData, REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [loadWeatherData]);
+
+  // Close with Escape or a click outside the panel
+  useEffect(() => {
+    if (!isExpanded) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsExpanded(false);
+    const onPointer = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) setIsExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onPointer);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onPointer);
+    };
+  }, [isExpanded]);
+
+  const chipClass =
+    'h-10 px-3 rounded-md bg-white text-stone-900 shadow-sm flex items-center gap-2 text-sm font-semibold';
+
+  if (!weather) {
+    return loading ? (
+      <div id="weather-widget-loading" className={`${chipClass} text-stone-600 font-normal`} role="status">
+        <span className="w-8 h-4 rounded-sm bg-stone-200" aria-hidden="true" />
+        Cargando clima…
       </div>
-    );
+    ) : failed ? (
+      <button type="button" onClick={loadWeatherData} className={`${chipClass} hover:bg-stone-100`}>
+        <span className="font-normal text-stone-600">Clima no disponible.</span> Reintentar
+      </button>
+    ) : null;
   }
 
-  if (!weather) return null;
+  const notices = weather.wetlandAlerts
+    .filter(a => a.severity !== 'good')
+    .sort((a, b) => SEVERITY[a.severity].rank - SEVERITY[b.severity].rank);
+  const recommendations = weather.wetlandAlerts.filter(a => a.severity === 'good');
+  const urgent = notices.filter(a => a.severity === 'warning' || a.severity === 'caution');
+  const today = weather.dailyForecast[0];
 
-  // Determine top alert
-  const topAlert = weather.wetlandAlerts.find(a => a.severity === 'warning') ||
-    weather.wetlandAlerts.find(a => a.severity === 'caution') ||
-    weather.wetlandAlerts[0];
-
-  const hasUrgentAlert = weather.wetlandAlerts.some(a => a.severity === 'warning' || a.severity === 'caution');
-
-  // Choose weather icon
-  const getWeatherIcon = (code: number, isDay: boolean = true) => {
-    if (code === 0 || code === 1) {
-      return isDay ? <Sun className="w-5 h-5 text-amber-400" /> : <CloudSun className="w-5 h-5 text-indigo-300" />;
-    }
-    if (code === 2) {
-      return <CloudSun className="w-5 h-5 text-sky-400" />;
-    }
-    if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) {
-      return <CloudRain className="w-5 h-5 text-blue-400" />;
-    }
-    return <Cloud className="w-5 h-5 text-stone-300" />;
-  };
-
-  const getAlertBadgeColor = (severity: WetlandWeatherAlert['severity']) => {
-    switch (severity) {
-      case 'warning':
-        return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
-      case 'caution':
-        return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-      case 'info':
-        return 'bg-sky-500/20 text-sky-300 border-sky-500/40';
-      case 'good':
-      default:
-        return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
-    }
-  };
-
-  const getAlertIcon = (category: WetlandWeatherAlert['category']) => {
-    switch (category) {
-      case 'resbaladizo':
-        return <Footprints className="w-4 h-4 text-amber-400" />;
-      case 'marea':
-        return <Waves className="w-4 h-4 text-sky-400" />;
-      case 'viento':
-        return <Wind className="w-4 h-4 text-indigo-400" />;
-      case 'uv':
-        return <Sun className="w-4 h-4 text-amber-400" />;
-      default:
-        return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
-    }
-  };
-
-  return (
-    <div id="wetland-weather-container" className="relative z-20">
-      {/* --- COMPACT FLOATING BAR (ON MAP) --- */}
-      <div className="flex items-center space-x-1.5">
-        <button
-          id="toggle-weather-button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={`flex items-center space-x-2.5 px-3 py-2 rounded-2xl shadow-xl border backdrop-blur-md transition-all active:scale-95 ${
-            hasUrgentAlert
-              ? 'bg-stone-900/95 border-amber-500/40 text-stone-100 hover:border-amber-400 hover:bg-stone-900'
-              : 'bg-stone-900/90 border-stone-700/60 text-stone-100 hover:bg-stone-900 hover:border-emerald-500/40'
-          }`}
-          title="Ver clima en tiempo real y alertas de sendero"
-        >
-          {/* Weather Icon & Temp */}
-          <div className="flex items-center space-x-1.5">
-            {getWeatherIcon(weather.weatherCode, weather.isDay)}
-            <span className="font-extrabold text-sm sm:text-base text-white tracking-tight">
-              {weather.temperature}°C
-            </span>
-          </div>
-
-          {/* Condition text (hidden on small mobile screens to keep HUD clean) */}
-          <span className="hidden sm:inline text-xs text-stone-300 font-medium border-l border-stone-700 pl-2 max-w-[130px] truncate">
-            {weather.weatherLabel}
-          </span>
-
-          {/* Alert pill */}
-          {topAlert && (
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${getAlertBadgeColor(
-                topAlert.severity
-              )}`}
+  const panelContent = (
+    <>
+      {/* Title row */}
+      <div className="flex items-start justify-between gap-3 px-4 pt-4">
+        <div>
+          <h2 id="weather-title" className="text-base font-semibold">Clima en el humedal</h2>
+          <p className="text-sm text-stone-600">
+            {weather.isCached ? 'Sin conexión: datos guardados ' : 'Actualizado '}
+            {freshness(weather)}
+            {' · '}
+            <button
+              id="refresh-weather-button"
+              type="button"
+              onClick={loadWeatherData}
+              disabled={loading}
+              className="font-semibold text-stone-900 underline underline-offset-2 disabled:text-stone-500 disabled:no-underline"
             >
-              {topAlert.severity === 'warning' || topAlert.severity === 'caution' ? (
-                <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-400" />
-              )}
-              <span className="hidden md:inline">{topAlert.title}</span>
-              <span className="md:hidden">
-                {weather.wetlandAlerts.length > 1 ? `${weather.wetlandAlerts.length} avisos` : topAlert.title}
-              </span>
-            </span>
-          )}
-
-          {/* Toggle chevron */}
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-stone-400 ml-1" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-stone-400 ml-1" />
-          )}
-        </button>
-
-        {/* Quick Refresh Icon Button */}
+              {loading ? 'Actualizando…' : 'Actualizar'}
+            </button>
+          </p>
+        </div>
         <button
-          id="refresh-weather-button"
-          onClick={loadWeatherData}
-          disabled={loading}
-          className="p-2 rounded-2xl bg-stone-900/90 hover:bg-stone-800 border border-stone-700/60 text-stone-300 hover:text-white shadow-xl backdrop-blur-md transition-all active:scale-95 disabled:opacity-50"
-          title="Actualizar datos meteorológicos en vivo"
+          id="close-weather-details-button"
+          type="button"
+          onClick={() => setIsExpanded(false)}
+          aria-label="Cerrar clima"
+          className="w-8 h-8 -mr-1 rounded-md flex items-center justify-center text-stone-500 hover:bg-stone-100 hover:text-stone-900"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* --- EXPANDED DETAILS CARD MODAL / POPUP --- */}
-      {isExpanded && (
-        <div
-          id="weather-details-card"
-          className="absolute top-12 left-0 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-stone-900/98 backdrop-blur-xl border border-stone-700/80 rounded-3xl p-4 shadow-2xl text-stone-100 mt-2 z-40 animate-in fade-in zoom-in-95 duration-200"
-        >
-          {/* Header */}
-          <div className="flex items-start justify-between border-b border-stone-800 pb-3 mb-3">
-            <div>
-              <div className="flex items-center space-x-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  Estación Meteorológica
-                </span>
-                <span className="text-[10px] text-stone-400">Valdivia, CL</span>
-              </div>
-              <h3 className="text-base font-black text-white mt-1">Humedal Angachilla</h3>
-              <p className="text-[11px] text-stone-400 flex items-center gap-1">
-                <span>Actualizado {weather.updatedAt} hrs</span>
-                <span>•</span>
-                <span className="text-emerald-400 font-medium">Open-Meteo API</span>
-              </p>
-            </div>
-
-            <button
-              id="close-weather-details-button"
-              onClick={() => setIsExpanded(false)}
-              className="p-1 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Current Big Metric */}
-          <div className="flex items-center justify-between bg-stone-800/60 border border-stone-700/50 rounded-2xl p-3.5 mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-stone-900/80 border border-stone-700">
-                {getWeatherIcon(weather.weatherCode, weather.isDay)}
-              </div>
-              <div>
-                <div className="flex items-baseline space-x-1.5">
-                  <span className="text-3xl font-black text-white">{weather.temperature}°C</span>
-                  <span className="text-xs text-stone-400">
-                    ST: <strong className="text-stone-200">{weather.apparentTemperature}°C</strong>
-                  </span>
-                </div>
-                <p className="text-xs font-semibold text-emerald-300 mt-0.5">{weather.weatherLabel}</p>
-              </div>
-            </div>
-
-            <div className="text-right text-[11px] text-stone-400 space-y-0.5">
-              <div>
-                Max: <span className="text-stone-200 font-bold">{weather.dailyForecast[0]?.maxTemp}°</span> / Min:{' '}
-                <span className="text-stone-200 font-bold">{weather.dailyForecast[0]?.minTemp}°</span>
-              </div>
-              <div className="text-sky-300 font-medium">Lluvia: {weather.precipitationProbability}%</div>
-            </div>
-          </div>
-
-          {/* Quick Metrics Grid */}
-          <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-            <div className="bg-stone-800/40 border border-stone-700/40 rounded-xl p-2">
-              <div className="flex justify-center text-blue-400 mb-1">
-                <Droplets className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] text-stone-400 block">Humedad</span>
-              <span className="text-xs font-bold text-stone-100">{weather.humidity}%</span>
-            </div>
-
-            <div className="bg-stone-800/40 border border-stone-700/40 rounded-xl p-2">
-              <div className="flex justify-center text-emerald-400 mb-1">
-                <Wind className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] text-stone-400 block">Viento</span>
-              <span className="text-xs font-bold text-stone-100">{weather.windSpeed} km/h</span>
-            </div>
-
-            <div className="bg-stone-800/40 border border-stone-700/40 rounded-xl p-2">
-              <div className="flex justify-center text-sky-400 mb-1">
-                <CloudRain className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] text-stone-400 block">Lluvia</span>
-              <span className="text-xs font-bold text-stone-100">{weather.precipitation} mm</span>
-            </div>
-
-            <div className="bg-stone-800/40 border border-stone-700/40 rounded-xl p-2">
-              <div className="flex justify-center text-amber-400 mb-1">
-                <Sun className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] text-stone-400 block">Índice UV</span>
-              <span className="text-xs font-bold text-stone-100">{weather.uvIndex}</span>
-            </div>
-          </div>
-
-          {/* Tabs Selector: Alertas vs Pronóstico */}
-          <div className="flex rounded-xl bg-stone-800/80 p-1 mb-3 border border-stone-700/60">
-            <button
-              id="weather-tab-alerts"
-              onClick={() => setActiveTab('alerts')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'alerts'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Alertas Humedal ({weather.wetlandAlerts.length})</span>
-            </button>
-            <button
-              id="weather-tab-forecast"
-              onClick={() => setActiveTab('forecast')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'forecast'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              <CloudSun className="w-3.5 h-3.5" />
-              <span>Pronóstico 4 Días</span>
-            </button>
-          </div>
-
-          {/* TAB 1: WETLAND SPECIFIC ALERTS & VISITATION RECOMMENDATIONS */}
-          {activeTab === 'alerts' && (
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-              {weather.wetlandAlerts.map(alert => (
-                <div
-                  key={alert.id}
-                  className={`p-2.5 rounded-xl border flex items-start space-x-2.5 ${getAlertBadgeColor(
-                    alert.severity
-                  )}`}
-                >
-                  <div className="p-1.5 rounded-lg bg-stone-900/60 border border-stone-700 flex-shrink-0 mt-0.5">
-                    {getAlertIcon(alert.category)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-white line-clamp-1">{alert.title}</h4>
-                      <span className="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded bg-stone-900/80 border border-stone-700">
-                        {alert.severity === 'warning'
-                          ? 'Alerta'
-                          : alert.severity === 'caution'
-                          ? 'Precaución'
-                          : alert.severity === 'good'
-                          ? 'Óptimo'
-                          : 'Información'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-stone-300 mt-1 leading-relaxed">{alert.message}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* TAB 2: MULTI-DAY FORECAST */}
-          {activeTab === 'forecast' && (
-            <div className="space-y-1.5">
-              {weather.dailyForecast.map(item => (
-                <div
-                  key={item.date}
-                  className="flex items-center justify-between bg-stone-800/50 hover:bg-stone-800/80 border border-stone-700/40 rounded-xl px-3 py-2 text-xs transition-colors"
-                >
-                  <div className="w-16 font-bold text-stone-200">{item.dayName}</div>
-                  <div className="flex items-center space-x-2 flex-1 justify-center">
-                    {getWeatherIcon(item.weatherCode)}
-                    <span className="text-stone-300 text-[11px] truncate max-w-[120px]">
-                      {item.weatherLabel}
-                    </span>
-                  </div>
-                  <div className="w-24 text-right flex items-center justify-end space-x-2">
-                    <span className="text-[10px] text-sky-400 font-semibold">{item.rainProb}% ☔</span>
-                    <span className="font-extrabold text-white">
-                      {item.maxTemp}° / <span className="text-stone-400 font-normal">{item.minTemp}°</span>
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Footer note */}
-          <div className="mt-3 pt-2.5 border-t border-stone-800 flex items-center justify-between text-[10px] text-stone-400">
-            <span className="flex items-center gap-1">
-              <Info className="w-3 h-3 text-emerald-400" />
-              Santuario de la Naturaleza Angachilla
-            </span>
-            <button
-              onClick={loadWeatherData}
-              className="text-emerald-400 hover:text-emerald-300 font-bold underline"
-            >
-              Refrescar
-            </button>
-          </div>
+      {/* Now */}
+      <div className="px-4 pt-4 flex items-center gap-4">
+        <WeatherIcon code={weather.weatherCode} isDay={weather.isDay} className="w-10 h-10 text-stone-700 shrink-0" />
+        <div>
+          <p className="flex items-baseline gap-2">
+            <span className="text-4xl font-semibold tracking-tight tabular-nums">{weather.temperature}°</span>
+            <span className="text-base text-stone-800">{weather.weatherLabel}</span>
+          </p>
+          <p className="text-sm text-stone-600 tabular-nums">
+            Sensación {weather.apparentTemperature}°
+            {today && ` · Máx ${today.maxTemp}° · Mín ${today.minTemp}°`}
+          </p>
         </div>
+      </div>
+
+      <dl className="mx-4 mt-4 grid grid-cols-4 border border-stone-200 rounded-md divide-x divide-stone-200">
+        <div className="px-2 py-2">
+          <dt className="text-xs text-stone-600">Humedad</dt>
+          <dd className="text-base font-semibold tabular-nums">{weather.humidity} %</dd>
+        </div>
+        <div className="px-2 py-2">
+          <dt className="text-xs text-stone-600">Viento</dt>
+          <dd className="text-base font-semibold tabular-nums whitespace-nowrap">
+            {weather.windSpeed} <span className="text-xs font-normal text-stone-600">km/h {cardinal(weather.windDirection)}</span>
+          </dd>
+        </div>
+        <div className="px-2 py-2">
+          <dt className="text-xs text-stone-600">Lluvia</dt>
+          <dd className="text-base font-semibold tabular-nums whitespace-nowrap">
+            {decimal.format(weather.precipitation)} <span className="text-xs font-normal text-stone-600">mm</span>
+          </dd>
+        </div>
+        <div className="px-2 py-2">
+          <dt className="text-xs text-stone-600">Índice UV</dt>
+          <dd className="text-base font-semibold tabular-nums">{decimal.format(weather.uvIndex)}</dd>
+        </div>
+      </dl>
+
+      {/* Conditions for the visit */}
+      <section className="px-4 pt-5" aria-labelledby="weather-notices">
+        <h3 id="weather-notices" className="text-sm font-semibold">Para tu visita</h3>
+        <ul className="mt-1 divide-y divide-stone-200">
+          {[...notices, ...recommendations].map(alert => (
+            <li key={alert.id} className="py-2.5 flex items-start gap-2.5">
+              <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${SEVERITY[alert.severity].dot}`} aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-stone-950">
+                  <span className="sr-only">{SEVERITY[alert.severity].label}: </span>
+                  {alert.title}
+                </p>
+                <p className="text-sm text-stone-700 leading-snug">{alert.message}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Next days */}
+      {weather.dailyForecast.length > 0 && (
+        <section className="px-4 pt-3 pb-3" aria-labelledby="weather-forecast">
+          <div className="flex items-baseline justify-between">
+            <h3 id="weather-forecast" className="text-sm font-semibold">Próximos días</h3>
+            <span className="text-xs text-stone-600">Prob. lluvia · Máx / Mín</span>
+          </div>
+          <table className="mt-1 w-full text-sm">
+            <tbody className="divide-y divide-stone-200">
+              {weather.dailyForecast.map(day => (
+                <tr key={day.date}>
+                  <th scope="row" className="py-2 pr-2 text-left font-semibold w-12">{day.dayName}</th>
+                  <td className="py-2 pr-2">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <WeatherIcon code={day.weatherCode} className="w-4 h-4 text-stone-600 shrink-0" />
+                      <span className="truncate text-stone-700">{day.weatherLabel}</span>
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-stone-600 whitespace-nowrap w-14">{day.rainProb} %</td>
+                  <td className="py-2 text-right tabular-nums whitespace-nowrap w-16">
+                    <span className="font-semibold">{day.maxTemp}°</span>
+                    <span className="text-stone-500"> / {day.minTemp}°</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
+
+      <p className="px-4 py-3 bg-stone-50 border-t border-stone-200 text-xs text-stone-600">
+        Pronóstico de modelo, no de una estación en el humedal. Datos de{' '}
+        <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-stone-900">
+          Open-Meteo
+        </a>{' '}
+        (CC BY 4.0).
+      </p>
+    </>
+  );
+
+  const panelProps = {
+    id: 'weather-details-card',
+    ref: panelRef,
+    role: 'dialog',
+    'aria-labelledby': 'weather-title'
+  } as const;
+
+  return (
+    <div id="wetland-weather-container" ref={rootRef} className={`relative ${isExpanded ? 'z-30' : 'z-20'}`}>
+      <button
+        id="toggle-weather-button"
+        type="button"
+        onClick={() => setIsExpanded(v => !v)}
+        aria-expanded={isExpanded}
+        aria-controls="weather-details-card"
+        className={`${chipClass} hover:bg-stone-100 active:scale-[0.98] transition-transform`}
+      >
+        <WeatherIcon code={weather.weatherCode} isDay={weather.isDay} className="w-5 h-5 text-stone-700" />
+        <span className="tabular-nums">{weather.temperature}°</span>
+        <span className="hidden sm:inline font-normal text-stone-600 max-w-[10rem] truncate">{weather.weatherLabel}</span>
+        {urgent.length > 0 && (
+          <span className="flex items-center gap-1.5 font-normal text-stone-700">
+            <span className={`w-2 h-2 rounded-full ${SEVERITY[urgent[0].severity].dot}`} aria-hidden="true" />
+            {urgent.length === 1 ? '1 aviso' : `${urgent.length} avisos`}
+          </span>
+        )}
+        <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isExpanded &&
+        (isPhone ? (
+          // Phone: a bottom sheet above the app's bottom bar, outside the map's clipping
+          createPortal(
+            <div className="fixed inset-0 z-[70] flex items-end bg-stone-950/40" onClick={() => setIsExpanded(false)}>
+              <div
+                {...panelProps}
+                aria-modal="true"
+                onClick={e => e.stopPropagation()}
+                className="w-full max-h-[85vh] overflow-y-auto overscroll-contain bg-white text-stone-900 rounded-t-lg shadow-lg pb-[env(safe-area-inset-bottom)]"
+              >
+                {panelContent}
+              </div>
+            </div>,
+            document.body
+          )
+        ) : (
+          // Tablet and desktop: a popover inside the map, which clips at its own height (58vh / full screen)
+          <div
+            {...panelProps}
+            className="absolute top-12 left-0 w-[22rem] max-h-[calc(58vh-4.5rem)] lg:max-h-[min(40rem,calc(100vh-5.5rem))] overflow-y-auto overscroll-contain bg-white text-stone-900 border border-stone-200 rounded-lg shadow-lg z-40"
+          >
+            {panelContent}
+          </div>
+        ))}
     </div>
   );
 };

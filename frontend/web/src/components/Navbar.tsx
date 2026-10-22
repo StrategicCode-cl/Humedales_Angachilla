@@ -27,7 +27,6 @@ import { soundService } from '../services/soundService';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface NavbarProps {
-  currentTab: string;
   setCurrentTab: (tab: string) => void;
   currentUser: User | null;
   onOpenAuth: () => void;
@@ -40,7 +39,6 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentTab,
   setCurrentTab,
   currentUser,
   onOpenAuth,
@@ -78,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white text-stone-900 border-b border-stone-200/90 shadow-xs select-none">
+    <header className="lg:hidden sticky top-0 z-40 bg-white text-stone-900 border-b border-stone-200/90 shadow-xs select-none">
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Brand Logo & Title */}
@@ -103,82 +101,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </p>
             </div>
           </div>
-
-          {/* Desktop Navigation Links (Clean Surface Pills) */}
-          <nav className="hidden lg:flex items-center space-x-1">
-            <button
-              onClick={() => setCurrentTab('avisos')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'avisos'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Comunidad & Avisos
-            </button>
-            <button
-              onClick={() => setCurrentTab('mapa')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'mapa'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Mapa & Senderos
-            </button>
-            <button
-              onClick={() => setCurrentTab('eventos')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'eventos'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Eventos
-            </button>
-            <button
-              onClick={() => setCurrentTab('galeria')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'galeria'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Galería
-            </button>
-            <button
-              onClick={() => setCurrentTab('catalogo')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'catalogo'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Biodiversidad
-            </button>
-            <button
-              onClick={() => setCurrentTab('sugerencias')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                currentTab === 'sugerencias'
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-            >
-              Buzón
-            </button>
-            {currentUser?.role === 'admin' && (
-              <button
-                onClick={() => setCurrentTab('admin')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                  currentTab === 'admin'
-                    ? 'bg-emerald-800 text-white'
-                    : 'text-emerald-800 hover:bg-emerald-50'
-                }`}
-              >
-                Panel Guardaparques
-              </button>
-            )}
-          </nav>
 
           {/* Unified, uncluttered Action Bar */}
           <div className="flex items-center space-x-1.5 sm:space-x-2">
@@ -252,20 +174,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-stone-200 py-2 z-50 text-xs text-stone-900 animate-in fade-in zoom-in-95 duration-150"
                   onClick={() => setShowUserMenu(false)}
                 >
-                  {/* User Profile Summary */}
-                  <div className="px-4 py-2.5 border-b border-stone-100">
-                    <p className="font-extrabold text-stone-900 truncate font-display text-sm">
-                      {currentUser ? currentUser.name : 'Visitante del Santuario'}
+                  {/* Profile summary, links to the profile page */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentTab('perfil')}
+                    className="w-full px-4 py-2.5 border-b border-stone-100 text-left hover:bg-stone-50 transition-colors"
+                  >
+                    <p className="font-semibold text-stone-900 truncate text-sm">
+                      {currentUser ? currentUser.name : 'Visitante'}
                     </p>
-                    <p className="text-stone-500 text-[11px] truncate">
-                      {currentUser ? currentUser.email : 'Acceso libre a la comunidad'}
+                    <p className="text-stone-600 text-xs truncate">
+                      {currentUser
+                        ? `${currentUser.email} · ${currentUser.role === 'admin' ? 'Guardaparques' : 'Visitante'}`
+                        : 'Sin sesión iniciada'}
                     </p>
-                    <div className="mt-1.5">
-                      <span className="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
-                        {currentUser?.role === 'admin' ? 'Guardaparques / Admin' : 'Comunidad Humedal'}
-                      </span>
-                    </div>
-                  </div>
+                    <p className="mt-1 text-xs font-semibold text-stone-900">Ver tu perfil ›</p>
+                  </button>
 
                   {/* Sanctuary Tools Group */}
                   <div className="px-3 py-1.5">

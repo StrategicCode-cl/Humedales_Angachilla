@@ -22,6 +22,7 @@ import { User, Notice } from '../types';
 import { authApi } from '../lib/api';
 import { pathForTab, tabForPath } from '../lib/tabs';
 import { Navbar } from './Navbar';
+import { DesktopSidebar } from './DesktopSidebar';
 import { QRScannerModal } from './QRScannerModal';
 import { AuthModal } from './AuthModal';
 import { InfographicsModal } from './InfographicsModal';
@@ -34,6 +35,8 @@ interface AppContextValue {
   openAuth: () => void;
   openDonations: () => void;
   openQRWithCode: (code: string) => void;
+  openQR: () => void;
+  logout: () => void;
   goToMapLocation: (coords: [number, number], routeId?: string) => void;
   mapTargetCoordinates: [number, number] | null;
   mapTargetRouteId: string | null;
@@ -57,7 +60,7 @@ const instagramNavItems = [
   { id: 'avisos', label: 'Inicio', icon: Home },
   { id: 'mapa', label: 'Mapa & GPS', icon: Compass },
   { id: 'crear', label: 'Crear', icon: Plus, isAction: true },
-  { id: 'eventos', label: 'Eventos', icon: Calendar },
+  { id: 'eventos', label: 'Calendario', icon: Calendar },
   { id: 'galeria', label: 'Pines', icon: Pin },
 ];
 
@@ -114,6 +117,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     openAuth: () => setIsAuthOpen(true),
     openDonations: () => setIsDonationOpen(true),
     openQRWithCode: handleOpenQRWithCode,
+    openQR: () => {
+      setPreselectedQRCode(null);
+      setIsQROpen(true);
+    },
+    logout: handleLogout,
     goToMapLocation: handleGoToMapLocation,
     mapTargetCoordinates: targetMapCoordinates,
     mapTargetRouteId: targetMapRouteId,
@@ -129,7 +137,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="w-full min-h-screen flex flex-col bg-stone-50">
         {/* Top Navbar Header */}
         <Navbar
-          currentTab={currentTab}
           setCurrentTab={setCurrentTab}
           currentUser={currentUser}
           onOpenAuth={() => setIsAuthOpen(true)}
@@ -144,15 +151,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           isCreatePanelOpen={isCreateMiniPanelOpen}
         />
 
+        {/* Desktop Sidebar Navigation (lg+) */}
+        <DesktopSidebar
+          currentTab={currentTab}
+          currentUser={currentUser}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onOpenQR={() => {
+            setPreselectedQRCode(null);
+            setIsQROpen(true);
+          }}
+          onOpenPosters={() => setIsPostersOpen(true)}
+          onOpenDonations={() => setIsDonationOpen(true)}
+          onLogout={handleLogout}
+          onOpenCreateSheet={() => setIsCreateMiniPanelOpen(prev => !prev)}
+          isCreatePanelOpen={isCreateMiniPanelOpen}
+        />
+
         {/* Main View Port */}
-        <main className="flex-1 w-full overflow-x-hidden pb-16 md:pb-0">
+        <main className="flex-1 w-full overflow-x-hidden pb-16 lg:pb-0 lg:pl-20">
           {children}
         </main>
 
         {/* --- INSTAGRAM MOBILE BOTTOM NAVIGATION BAR --- */}
         <nav
           id="instagram-bottom-dock"
-          className="fixed md:hidden bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200/90 px-2 py-1.5 flex items-center justify-around shadow-2xl select-none"
+          className="fixed lg:hidden bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-stone-200/90 px-2 py-1.5 flex items-center justify-around shadow-2xl select-none"
         >
           {instagramNavItems.map(item => {
             const Icon = item.icon;
@@ -213,7 +236,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div
             id="mini-actions-panel"
-            className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-xs z-50 bg-stone-900/90 text-white backdrop-blur-xl rounded-3xl p-3 shadow-2xl border border-white/10 animate-in zoom-in-95 fade-in slide-in-from-bottom-3 duration-150 select-none"
+            className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-48 lg:left-24 lg:translate-x-0 w-[90%] max-w-xs z-50 bg-stone-900/90 text-white backdrop-blur-xl rounded-3xl p-3 shadow-2xl border border-white/10 animate-in zoom-in-95 fade-in slide-in-from-bottom-3 duration-150 select-none"
           >
             <div className="flex items-center justify-between pb-1.5 mb-1 px-1">
               <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400">
