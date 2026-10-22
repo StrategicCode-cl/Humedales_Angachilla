@@ -147,10 +147,9 @@ export const SanctuaryHistorySection: React.FC<SanctuaryHistorySectionProps> = (
     titulo: 'Nuestra Reserva Comunitaria',
     subtitulo: 'Reserva Natural Urbana y Santuario de la Naturaleza Bosque Humedal Angachilla',
     parrafos: [
-      'La Reserva Comunitaria Bosque Humedal Angachilla es un espacio natural protegido y gestionado por el Comité Ecológico Humedal Angachilla en las áreas de zona de protección del Santuario de la Naturaleza Humedal Angachilla y en terrenos colindantes a éste administrados por la organización, los cuales proyectan conformar como una Reserva Natural Urbana.',
-      'Este lugar es rescatado y resguardado por la comunidad debido al abandono e impacto negativo que estaba sufriendo, siendo amenazado principalmente por los rellenos de tierra y escombros que arrasaron con parte del bosque humedal, además de los microbasurales y el ingreso de vehículos motorizados que afectaron la vegetación y el hábitat de diversas especies.',
-      'Con una superficie aproximada de 20 hectáreas, este espacio se caracteriza por la diversidad de ecosistemas que coexisten en el área urbana de Valdivia, con presencia de praderas, bosque renoval nativo y exótico, hualves (bosque pantanoso), humedal palustre, esteros y lagunas que conforman un refugio de biodiversidad de gran valor ecológico donde habitan especies en categoría de conservación como el cisne de cuello negro, la rana chilena, el huillín, el pájaro siete colores y el carpintero negro.',
-      'La reserva comunitaria cuenta en su interior con una infraestructura sustentable con accesibilidad universal, y un programa de actividades recreativas y de educación ambiental gratuitas y abiertas para toda la comunidad. Esta iniciativa contribuyó en la acreditación de Valdivia como Ciudad Humedal por la Convención Ramsar en julio de 2025, además de ser reconocida con el premio Valdivia Destaca en febrero de 2026 por su aporte al desarrollo local.',
+      'La Reserva Comunitaria Bosque Humedal Angachilla es un área de conservación natural que alberga una gran biodiversidad que habita en su humedal palustre y sus diferentes bosques inundables. Esta se ubica en el sector sur de la ciudad de Valdivia, Región de Los Ríos, Chile. Y abarca un área de protección de aproximadamente 20 hectáreas integrada dentro del Santuario de la Naturaleza Humedales de Angachilla.',
+      'La limpieza del agua, la regulación de inundaciones y la captura de carbono son importantes servicios ecosistémicos que, como todos los humedales, esta reserva le entrega a Valdivia, la que fue declarada oficialmente como la primera “Ciudad Humedal” de Latinoamérica y la única en Chile por la Convención Ramsar en julio de 2025.',
+      'Bosque Humedal Angachilla nace como una iniciativa vecinal de proteger, conservar y valorar esta reserva natural por el cuidado de nuestra salud y bienestar. En ella se ve reflejado el trabajo comunitario, voluntario y sostenido en el tiempo por vecinos y organizaciones que creen en la fuerza de la colaboración. Esta iniciativa fue impulsada por el Comité Ecológico Bosque Humedal del Santuario Angachilla, la que fue nominada por la I. Municipalidad de Valdivia y elegida por toda la comunidad como ganadora de “Valdivia Destaca 2026”, en la categoría de ciudad sustentable.',
     ],
     atractivos: [
       'Miradores, puentes y senderos inclusivos.',
@@ -164,13 +163,13 @@ export const SanctuaryHistorySection: React.FC<SanctuaryHistorySectionProps> = (
     ],
     normas: [
       { texto: 'No botar basura; ésta contamina el hábitat. Llévatela o transpórtala a los basureros cercanos.', mediaSlug: 'docx-reserva-1' },
-      { texto: 'Evitar venir con mascotas; de lo contrario mantenerlas con correa y supervisadas constantemente.', mediaSlug: 'docx-reserva-2' },
-      { texto: 'No cortar ramas ni árboles ni extraer plantas, funga y retoños.', mediaSlug: 'docx-reserva-3' },
-      { texto: 'Emitir el menor ruido posible para no alterar ni espantar a las aves.', mediaSlug: 'docx-reserva-4' },
-      { texto: 'Prohibido hacer fuego o fogatas y acampar en la reserva.', mediaSlug: 'docx-reserva-5' },
-      { texto: 'Transitar sólo por los senderos habilitados.', mediaSlug: 'docx-reserva-6' },
-      { texto: 'Prohibido el ingreso de vehículos motorizados.', mediaSlug: 'docx-reserva-7' },
-      { texto: 'Prohibido cazar y pescar dentro de la reserva.', mediaSlug: 'docx-reserva-8' },
+      { texto: 'Humedal Angachilla Zona Protegida.', mediaSlug: 'docx-reserva-2' },
+      { texto: 'Parque Natural de Bosque Nativo y Rivera.', mediaSlug: 'docx-reserva-3' },
+      { texto: 'Flora y Fauna Nativa del Bosque y Humedal.', mediaSlug: 'docx-reserva-4' },
+      { texto: 'Miradores de Paisajes y de Avistamiento.', mediaSlug: 'docx-reserva-5' },
+      { texto: 'Trekking sólo por los senderos habilitados.', mediaSlug: 'docx-reserva-6' },
+      { texto: 'Avistamiento de aves en Zonas protegidas.', mediaSlug: 'docx-reserva-7' },
+      { texto: 'Toma de Fotografías de Flora, Fauna y Paisajes.', mediaSlug: 'docx-reserva-8' },
     ],
   };
 
