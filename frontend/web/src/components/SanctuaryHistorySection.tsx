@@ -27,7 +27,7 @@ const media = (slug: string) => `${API_URL}/api/media/slug/${slug}`;
 
 export const SanctuaryHistorySection: React.FC<SanctuaryHistorySectionProps> = ({
   onOpenDonations,
-  initialSubTab = 'reserva',
+  initialSubTab = 'app',
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(initialSubTab);
   const [expandedWorkLine, setExpandedWorkLine] = useState<number | null>(1);

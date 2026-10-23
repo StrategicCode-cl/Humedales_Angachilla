@@ -60,7 +60,7 @@ export function useApp(): AppContextValue {
 // 5 Primary Bottom Nav items acordados:
 // 1. Feed, 2. Galería, 3. Recorrer Mapa (central con botón flotante), 4. Especies, 5. Apps
 const bottomNavItems = [
-  { id: 'avisos', label: 'Feed', icon: Home },
+  { id: 'avisos', label: 'Inicio', icon: Home },
   { id: 'galeria', label: 'Galería', icon: Camera },
   { id: 'mapa', label: 'Recorrer Mapa', icon: Compass, isMapCenter: true },
   { id: 'catalogo', label: 'Especies', icon: BookOpen },
