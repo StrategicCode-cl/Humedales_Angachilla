@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { User } from '../types';
 import { resolveMediaUrl } from '../lib/api';
+import { AngachillaIcon } from './AngachillaIcon';
 import { pathForTab } from '../lib/tabs';
 import { soundService } from '../services/soundService';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -74,12 +75,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     <aside className="group/sidebar hidden lg:flex fixed inset-y-0 left-0 z-50 w-20 hover:w-64 focus-within:w-64 flex-col overflow-hidden bg-white border-r border-stone-200/90 hover:shadow-2xl focus-within:shadow-2xl transition-[width,box-shadow] duration-500 ease-in-out select-none">
       {/* Brand */}
       <Link href={pathForTab('avisos')} className="flex items-center gap-3 px-5 h-20 group shrink-0">
-        <div className="w-10 h-10 shrink-0 rounded-xl bg-emerald-900 flex items-center justify-center p-1.5 shadow-xs group-hover:bg-emerald-800 transition-colors">
-          <img
-            src={resolveMediaUrl('/api/media/slug/svg-simbolo-angachilla-app')}
-            alt="Angachilla App"
-            className="w-full h-full object-contain brightness-0 invert"
-          />
+        <div className="w-10 h-10 shrink-0 rounded-[23%] ring-1 ring-stone-200 group-hover:ring-stone-300 transition-shadow">
+          <AngachillaIcon title="Angachilla App" className="w-full h-full" />
         </div>
         <div className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">
           <img

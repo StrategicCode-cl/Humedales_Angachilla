@@ -43,6 +43,18 @@ const ProfilePage = dynamic(() => import('./ProfilePage').then(m => m.ProfilePag
   ssr: false,
   loading: SectionLoading,
 });
+const DonatePage = dynamic(() => import('./DonatePage').then(m => m.DonatePage), {
+  ssr: false,
+  loading: SectionLoading,
+});
+const AuthPage = dynamic(() => import('./AuthPages').then(m => m.AuthPage), {
+  ssr: false,
+  loading: SectionLoading,
+});
+const ResetPasswordPage = dynamic(() => import('./AuthPages').then(m => m.ResetPasswordPage), {
+  ssr: false,
+  loading: SectionLoading,
+});
 const AdminDashboard = dynamic(() => import('./AdminDashboard').then(m => m.AdminDashboard), {
   ssr: false,
   loading: SectionLoading,
@@ -146,4 +158,20 @@ export function AdminSection() {
 
 export function PerfilSection() {
   return <ProfilePage />;
+}
+
+export function DonarSection() {
+  return <DonatePage />;
+}
+
+export function IngresarSection() {
+  return <AuthPage mode="login" />;
+}
+
+export function RegistroSection() {
+  return <AuthPage mode="register" />;
+}
+
+export function RestablecerClaveSection() {
+  return <ResetPasswordPage />;
 }

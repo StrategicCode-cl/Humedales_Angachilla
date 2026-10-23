@@ -83,9 +83,11 @@ const EVENT_CATEGORY: Record<WetlandEvent['category'], string> = {
 
 const SPECIES_CATEGORY: Record<Species['category'], string> = {
   ave_acuatica: 'Ave acuática',
+  ave_totoral: 'Ave de totoral',
   ave_bosque: 'Ave de bosque',
   mamifero: 'Mamífero',
   anfibio: 'Anfibio',
+  reptil: 'Reptil',
   hongo: 'Hongo',
   arbol_arbusto: 'Árbol o arbusto nativo',
   planta_acuatica: 'Planta acuática'

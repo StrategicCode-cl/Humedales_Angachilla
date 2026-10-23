@@ -135,8 +135,12 @@ export const ProfilePage: React.FC = () => {
               )}
             </div>
             <div className="min-w-0 flex-1 basis-48">
-              <h1 className="text-2xl font-semibold tracking-tight text-stone-950 truncate">{user.name}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-stone-950 truncate">
+                {user.lastName ? `${user.name} ${user.lastName}` : user.name}
+              </h1>
               <p className="text-sm text-stone-600">
+                {user.username && <span className="font-medium text-stone-800">@{user.username}</span>}
+                {user.username && ' · '}
                 {user.email} · {user.role === 'admin' ? 'Guardaparques' : 'Visitante'} · Miembro desde {memberSince(user)}
               </p>
             </div>

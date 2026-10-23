@@ -21,7 +21,8 @@ export function resolveMediaUrl(url?: string | null): string {
 }
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  // field: the form field the server blames, when it says (e.g. 'username')
+  constructor(message: string, readonly status: number, readonly field?: string) {
     super(message);
   }
 }
@@ -42,7 +43,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiError(body.error ?? 'Ocurrió un error inesperado', res.status);
+    throw new ApiError(body.error ?? 'Ocurrió un error inesperado', res.status, body.field);
   }
   return body as T;
 }
@@ -50,16 +51,34 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 export const authApi = {
   me: () => apiFetch<{ user: User | null }>('/api/auth/me').then(r => r.user),
 
-  login: (email: string, password: string) =>
+  // identifier: email or username
+  login: (identifier: string, password: string) =>
     apiFetch<{ user: User }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     }).then(r => r.user),
 
-  register: (name: string, email: string, password: string) =>
+  register: (data: { name: string; lastName?: string; username: string; email: string; password: string }) =>
     apiFetch<{ user: User }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify(data),
+    }).then(r => r.user),
+
+  usernameAvailable: (username: string) =>
+    apiFetch<{ available: boolean; reason?: string }>(
+      `/api/auth/username-available?u=${encodeURIComponent(username)}`
+    ),
+
+  forgotPassword: (identifier: string) =>
+    apiFetch<{ ok: true }>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ identifier }),
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    apiFetch<{ user: User }>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
     }).then(r => r.user),
 
   logout: () => apiFetch<void>('/api/auth/logout', { method: 'POST' }),

@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { User } from '../types';
 import { resolveMediaUrl } from '../lib/api';
+import { AngachillaIcon } from './AngachillaIcon';
+import { ConnectionStatus } from './OfflineIndicator';
 import { soundService } from '../services/soundService';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useApp } from './AppShell';
@@ -83,23 +85,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 cursor-pointer group"
             onClick={() => setCurrentTab('avisos')}
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-900 flex items-center justify-center p-1.5 shadow-xs group-hover:bg-emerald-800 transition-colors shrink-0">
-              <img
-                src={resolveMediaUrl('/api/media/slug/svg-simbolo-angachilla-app')}
-                alt="Símbolo Angachilla App"
-                className="w-full h-full object-contain brightness-0 invert"
-              />
+            <div className="w-10 h-10 rounded-[23%] ring-1 ring-stone-200 group-hover:ring-stone-300 transition-shadow shrink-0">
+              <AngachillaIcon title="Angachilla App" className="w-full h-full text-gray-700" />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <img
                   src={resolveMediaUrl('/api/media/slug/svg-letras-angachilla-app')}
                   alt="Angachilla App"
-                  className="h-5 sm:h-6 w-auto object-contain"
+                  className="h-4 sm:h-6 w-auto object-contain"
                 />
-                <span className="hidden sm:inline-block px-2 py-0.5 text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-900 rounded-full border border-emerald-300">
-                  Reserva Comunitaria
-                </span>
               </div>
               <p className="text-[10px] text-stone-500 font-semibold tracking-wide hidden sm:block">
                 Santuario de la Naturaleza Humedal Angachilla · Valdivia
@@ -109,6 +104,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Action Bar: Ambient + Donations + Create + User Profile */}
           <div className="flex items-center space-x-1.5 sm:space-x-2">
+            <ConnectionStatus />
+
             {/* Ambient Nature Sound Toggle */}
             <button
               onClick={handleToggleAmbient}
@@ -297,7 +294,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Institutional Sub-Bar with the 3 Official Logos (Acta Reunión 3 App) */}
+      {/* Institutional Sub-Bar with the 3 Official Logos */}
       <div className="bg-stone-50/90 border-t border-stone-200/70 px-3 sm:px-6 py-1.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
           <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 shrink-0 hidden sm:inline">
@@ -308,7 +305,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <img
                 src={resolveMediaUrl('/api/media/slug/svg-logo-reserva-comunitaria')}
                 alt="Logo Reserva Comunitaria Humedal Angachilla"
-                className="h-6 sm:h-7 w-auto object-contain"
+                className="h-11 sm:h-12 w-auto object-contain"
               />
               <span className="text-[10px] font-bold text-stone-700 hidden md:inline">
                 Reserva Comunitaria
@@ -321,7 +318,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <img
                 src={resolveMediaUrl('/api/media/slug/svg-logo-comite-ecologico')}
                 alt="Logo Comité Ecológico Bosque Humedal Angachilla"
-                className="h-6 sm:h-7 w-auto object-contain"
+                className="h-11 sm:h-12 w-auto object-contain"
               />
               <span className="text-[10px] font-bold text-stone-700 hidden md:inline">
                 Comité Ecológico
@@ -334,12 +331,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               <img
                 src={resolveMediaUrl('/api/media/slug/svg-logo-muni-valdivia')}
                 alt="Logo Municipalidad de Valdivia"
-                className="h-6 sm:h-7 w-auto object-contain"
+                className="h-11 sm:h-12 w-auto object-contain"
               />
               <img
                 src={resolveMediaUrl('/api/media/slug/svg-logo-marca-turistica')}
                 alt="Logo Marca Turística Valdivia"
-                className="h-5 sm:h-6 w-auto object-contain"
+                className="h-10 sm:h-12 w-auto object-contain"
               />
             </div>
           </div>

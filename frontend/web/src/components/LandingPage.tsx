@@ -15,6 +15,7 @@ import { User, WetlandEvent } from '../types';
 import { ecosistemaApi, resolveMediaUrl } from '../lib/api';
 import { HUMEDAL_ROUTES } from '../data/mockData';
 import { dateKey, eventDateKey, formatEventDateShort } from '../lib/eventDates';
+import { AppDownloadBanner } from './AppDownloadBanner';
 
 interface LandingPageProps {
   currentUser: User | null;
@@ -244,7 +245,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight font-display leading-[1.15]">
           Reserva Comunitaria <br className="hidden sm:inline" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-200">
-            Humedales de Angachilla
+            Bosque Humedal Angachilla
           </span>
         </h2>
 
@@ -403,6 +404,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </p>
         </div>
       </footer>
+
+      <AppDownloadBanner />
     </div>
   );
 };

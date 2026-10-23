@@ -8,15 +8,15 @@ import { storageService } from '../services/storageService';
 
 interface SanctuaryHistorySectionProps {
   onOpenDonations?: () => void;
-  initialSubTab?: 'reserva' | 'comite' | 'app';
+  initialSubTab?: 'app' | 'reserva' | 'comite';
 }
 
-type SubTab = 'reserva' | 'comite' | 'app';
+type SubTab = 'app' | 'reserva' | 'comite';
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
+  { id: 'app', label: 'Angachilla App' },
   { id: 'reserva', label: 'La reserva' },
   { id: 'comite', label: 'Comité Ecológico' },
-  { id: 'app', label: 'Angachilla App' },
 ];
 
 const inputClass =

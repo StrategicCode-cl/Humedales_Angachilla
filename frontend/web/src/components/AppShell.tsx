@@ -25,7 +25,6 @@ import { DesktopSidebar } from './DesktopSidebar';
 import { QRScannerModal } from './QRScannerModal';
 import { AuthModal } from './AuthModal';
 import { InfographicsModal } from './InfographicsModal';
-import { DonationModal } from './DonationModal';
 import { OfflineIndicator } from './OfflineIndicator';
 
 import { LandingPage } from './LandingPage';
@@ -34,6 +33,7 @@ interface AppContextValue {
   currentUser: User | null;
   setCurrentTab: (tab: string) => void;
   openAuth: () => void;
+  signIn: (user: User) => void;
   openDonations: () => void;
   openLanding: () => void;
   openQRWithCode: (code: string) => void;
@@ -85,7 +85,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
   const [isPostersOpen, setIsPostersOpen] = useState(false);
-  const [isDonationOpen, setIsDonationOpen] = useState(false);
   const [isCreateMiniPanelOpen, setIsCreateMiniPanelOpen] = useState(false);
   const [isCreatePinTriggered, setIsCreatePinTriggered] = useState(false);
   const [isCreateNoticeTriggered, setIsCreateNoticeTriggered] = useState(false);
@@ -126,7 +125,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     currentUser,
     setCurrentTab,
     openAuth: () => setIsAuthOpen(true),
-    openDonations: () => setIsDonationOpen(true),
+    signIn: setCurrentUser,
+    openDonations: () => setCurrentTab('donar'),
     openLanding: () => setShowLanding(true),
     openQRWithCode: handleOpenQRWithCode,
     openQR: () => {
@@ -194,7 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             setIsQROpen(true);
           }}
           onOpenPosters={() => setIsPostersOpen(true)}
-          onOpenDonations={() => setIsDonationOpen(true)}
+          onOpenDonations={() => setCurrentTab('donar')}
           onLogout={handleLogout}
           onOpenCreateSheet={() => setIsCreateMiniPanelOpen(prev => !prev)}
           isCreatePanelOpen={isCreateMiniPanelOpen}
@@ -210,14 +210,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             setIsQROpen(true);
           }}
           onOpenPosters={() => setIsPostersOpen(true)}
-          onOpenDonations={() => setIsDonationOpen(true)}
+          onOpenDonations={() => setCurrentTab('donar')}
           onLogout={handleLogout}
           onOpenCreateSheet={() => setIsCreateMiniPanelOpen(prev => !prev)}
           isCreatePanelOpen={isCreateMiniPanelOpen}
         />
 
         {/* Main View Port */}
-        <main className="flex-1 w-full overflow-x-hidden pb-16 lg:pb-0 lg:pl-20">
+        <main className="flex-1 w-full overflow-x-clip pb-16 lg:pb-0 lg:pl-20">
           {children}
         </main>
 
@@ -376,7 +376,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 label="Donar Aporte al Santuario"
                 onClick={() => {
                   setIsCreateMiniPanelOpen(false);
-                  setIsDonationOpen(true);
+                  setCurrentTab('donar');
                 }}
               />
             </div>
@@ -407,11 +407,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setIsPostersOpen(false)}
       />
 
-      <DonationModal
-        isOpen={isDonationOpen}
-        onClose={() => setIsDonationOpen(false)}
-        currentUser={currentUser}
-      />
 
       <OfflineIndicator />
     </AppContext.Provider>

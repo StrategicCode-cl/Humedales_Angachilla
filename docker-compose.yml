@@ -26,6 +26,15 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_NAME: ${ADMIN_NAME:-}
+      # Front al que apunta el enlace del correo de recuperación de contraseña
+      APP_URL: ${APP_URL:-http://localhost:3001}
+      # Correo saliente; sin SMTP_HOST los correos se escriben en el log del backend
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       UTILIDAD_DIR: /app/utilidad
       POINTS_ROUTE_DIR: /app/Points_Route
       ESPECIES_EXTRA_DIR: /app/especies_extra

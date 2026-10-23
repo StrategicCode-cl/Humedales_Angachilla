@@ -3,6 +3,8 @@ export type UserRole = 'visitante' | 'admin';
 export interface User {
   id: string;
   name: string;
+  lastName?: string;
+  username: string;
   email: string;
   role: UserRole;
   avatar?: string;
@@ -11,9 +13,11 @@ export interface User {
 
 export type SpeciesCategory =
   | 'ave_acuatica'
+  | 'ave_totoral'
   | 'ave_bosque'
   | 'mamifero'
   | 'anfibio'
+  | 'reptil'
   | 'arbol_arbusto'
   | 'planta_acuatica'
   | 'hongo';

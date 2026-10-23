@@ -13,9 +13,11 @@ interface SpeciesCatalogProps {
 
 const CATEGORY_LABELS: Record<SpeciesCategory, string> = {
   ave_acuatica: 'Aves acuáticas',
+  ave_totoral: 'Aves de totoral',
   ave_bosque: 'Aves de bosque y rapaces',
   mamifero: 'Mamíferos',
   anfibio: 'Anfibios, peces e invertebrados',
+  reptil: 'Reptiles',
   hongo: 'Reino Fungi',
   arbol_arbusto: 'Árboles y arbustos nativos',
   planta_acuatica: 'Plantas acuáticas y palustres',
@@ -23,28 +25,30 @@ const CATEGORY_LABELS: Record<SpeciesCategory, string> = {
 
 const CATEGORY_ORDER: SpeciesCategory[] = [
   'ave_acuatica',
+  'ave_totoral',
   'ave_bosque',
   'mamifero',
   'anfibio',
+  'reptil',
   'arbol_arbusto',
   'planta_acuatica',
   'hongo',
 ];
 
-const FAUNA: SpeciesCategory[] = ['ave_acuatica', 'ave_bosque', 'mamifero', 'anfibio'];
+const FAUNA: SpeciesCategory[] = ['ave_acuatica', 'ave_totoral', 'ave_bosque', 'mamifero', 'anfibio', 'reptil'];
 
 const GROUPS: { id: string; title: string; text: string; categories: SpeciesCategory[] }[] = [
   {
     id: 'aves',
     title: 'Aves del Humedal y del Bosque',
     text: 'Viven entre el totoral, los espejos de agua y el bosque ribereño de las 9 estaciones. Varias se reconocen antes por su canto que por la vista.',
-    categories: ['ave_acuatica', 'ave_bosque'],
+    categories: ['ave_acuatica', 'ave_totoral', 'ave_bosque'],
   },
   {
     id: 'mamiferos-anfibios',
     title: 'Mamíferos, Anfibios, Peces e Invertebrados',
     text: 'Habitantes sigilosos de las riberas, aguas oxigenadas y suelos saturados del hualve.',
-    categories: ['mamifero', 'anfibio'],
+    categories: ['mamifero', 'anfibio', 'reptil'],
   },
   {
     id: 'flora',
