@@ -1,22 +1,79 @@
 'use client';
 
-import React from 'react';
-import { WifiOff } from 'lucide-react';
-import { useOnlineStatus } from '../hooks/usePWAInstall';
+import React, { useEffect, useState } from 'react';
+import { Wifi, WifiOff, X } from 'lucide-react';
+import { useIsOnline } from '../lib/connectivity';
 
+const OFFLINE_TOAST_MS = 5000;
+const BACK_TOAST_MS = 2500;
+
+/**
+ * Short notice when the connection drops and when it returns. While offline, the lasting
+ * signal is the small ConnectionStatus in the top bar, not a banner over the content.
+ */
 export const OfflineIndicator: React.FC = () => {
-  const isOnline = useOnlineStatus();
+  const online = useIsOnline();
+  const [toast, setToast] = useState<'offline' | 'back' | null>(null);
 
-  if (isOnline) return null;
+  // React to changes only: nothing shows on a normal page load
+  const [previous, setPrevious] = useState(online);
+  if (previous !== online) {
+    setPrevious(online);
+    setToast(online ? 'back' : 'offline');
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), toast === 'offline' ? OFFLINE_TOAST_MS : BACK_TOAST_MS);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  if (!toast) return null;
 
   return (
     <div
-      id="pwa-offline-indicator"
-      className="fixed bottom-18 lg:bottom-6 left-4 lg:left-24 z-50 flex items-center gap-2.5 rounded-2xl bg-amber-500/95 text-stone-950 px-3.5 py-2 text-xs font-bold shadow-2xl backdrop-blur-md border border-amber-300 animate-in fade-in slide-in-from-bottom-2 duration-200 select-none"
+      role="status"
+      aria-live="polite"
+      className="fixed z-[70] left-4 right-4 top-[4.25rem] sm:left-auto sm:right-6 sm:top-auto sm:bottom-6 sm:w-[22rem] lg:bottom-6 rounded-lg bg-stone-900 text-white shadow-2xl px-4 py-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 sm:slide-in-from-bottom-2 duration-200 motion-reduce:animate-none"
     >
-      <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
-      <WifiOff className="w-4 h-4 text-stone-950 stroke-[2.5]" />
-      <span>Modo Offline: Usando mapas y senderos en caché local sin señal celular.</span>
+      {toast === 'offline' ? (
+        <>
+          <WifiOff className="w-5 h-5 mt-0.5 text-amber-300 shrink-0" />
+          <p className="min-w-0 flex-1 text-sm leading-snug">
+            <span className="block font-semibold">Sin conexión</span>
+            <span className="text-stone-300">Lo que ya cargaste sigue a la vista. Fotos, mapa y publicaciones nuevas cargarán al volver la señal.</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Cerrar aviso"
+            className="w-8 h-8 -mr-2 -mt-1 rounded-md flex items-center justify-center text-stone-400 hover:text-white hover:bg-white/10 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </>
+      ) : (
+        <>
+          <Wifi className="w-5 h-5 mt-0.5 text-emerald-300 shrink-0" />
+          <p className="text-sm font-semibold leading-snug">Conexión restablecida</p>
+        </>
+      )}
     </div>
+  );
+};
+
+/** Lasting, quiet signal for the top bar while offline: an icon on phones, icon and words on wider screens */
+export const ConnectionStatus: React.FC = () => {
+  const online = useIsOnline();
+  if (online) return null;
+  return (
+    <span
+      role="status"
+      title="Sin conexión a internet"
+      className="inline-flex items-center gap-1.5 h-8 px-2 sm:px-2.5 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold"
+    >
+      <WifiOff className="w-3.5 h-3.5" aria-hidden="true" />
+      <span className="sr-only sm:not-sr-only">Sin conexión</span>
+    </span>
   );
 };

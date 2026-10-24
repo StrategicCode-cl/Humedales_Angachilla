@@ -17,13 +17,14 @@ import { storageService } from '../services/storageService';
 import { resolveMediaUrl } from '../lib/api';
 import { HUMEDAL_ROUTES } from '../data/mockData';
 import { eventDateKey, formatEventDate } from '../lib/eventDates';
+import { MapPointsManager } from './MapPointsManager';
 
 interface AdminDashboardProps {
   currentUser: User | null;
   onRefreshAll?: () => void;
 }
 
-type SectionId = 'tickets' | 'sugerencias' | 'eventos' | 'totems' | 'especies' | 'avisos' | 'fotos' | 'donaciones';
+type SectionId = 'tickets' | 'sugerencias' | 'eventos' | 'mapa' | 'totems' | 'especies' | 'avisos' | 'fotos' | 'donaciones';
 type TicketFilter = 'pendiente' | 'aprobado' | 'rechazado' | 'todos';
 
 const TICKET_TYPE: Record<ModerationTicket['type'], { label: string; approve: string }> = {
@@ -83,9 +84,11 @@ const EVENT_CATEGORY: Record<WetlandEvent['category'], string> = {
 
 const SPECIES_CATEGORY: Record<Species['category'], string> = {
   ave_acuatica: 'Ave acuática',
+  ave_totoral: 'Ave de totoral',
   ave_bosque: 'Ave de bosque',
   mamifero: 'Mamífero',
   anfibio: 'Anfibio',
+  reptil: 'Reptil',
   hongo: 'Hongo',
   arbol_arbusto: 'Árbol o arbusto nativo',
   planta_acuatica: 'Planta acuática'
@@ -499,10 +502,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onR
       done('Foto eliminada.');
     });
 
-  const sections: { id: SectionId; label: string; count: number; queue?: boolean }[] = [
+  const sections: { id: SectionId; label: string; count?: number; queue?: boolean }[] = [
     { id: 'tickets', label: 'Moderación', count: pendingTickets.length, queue: true },
     { id: 'sugerencias', label: 'Sugerencias', count: pendingSuggestions.length, queue: true },
     { id: 'eventos', label: 'Eventos', count: eventsList.length },
+    { id: 'mapa', label: 'Puntos del mapa' },
     { id: 'totems', label: 'Tótems QR', count: pointsOfInterest.length },
     { id: 'especies', label: 'Especies', count: speciesList.length },
     { id: 'avisos', label: 'Avisos', count: notices.length },
@@ -549,7 +553,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onR
                     }`}
                   >
                     <span>{s.label}</span>
-                    {s.queue ? (
+                    {s.count === undefined ? null : s.queue ? (
                       s.count > 0 ? (
                         <span className="min-w-5 h-5 px-1.5 rounded-full bg-stone-900 text-white text-xs font-semibold flex items-center justify-center tabular-nums">
                           {s.count}
@@ -781,6 +785,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onR
           )}
 
           {/* TOTEMS */}
+          {section === 'mapa' && (
+            <>
+              <SectionHeader
+                title="Puntos del mapa"
+                description="Miradores, lugares de actividades y servicios que ven los visitantes en el mapa, con o sin ruta. Arrastra cualquier pin o tótem para corregir dónde está."
+              />
+              <MapPointsManager stations={pointsOfInterest} events={eventsList} notify={done} />
+            </>
+          )}
+
           {section === 'totems' && (
             <>
               <SectionHeader

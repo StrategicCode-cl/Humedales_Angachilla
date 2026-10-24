@@ -1226,36 +1226,34 @@ export const INSTITUTIONAL_CONTENT = {
     ]
   },
   "acerca-reserva": {
-    titulo: "Nuestra Reserva Comunitaria",
-    subtitulo: "Reserva Comunitaria Bosque Humedal Angachilla — 20 hectáreas protegidas por la comunidad",
-    parrafos: [
-      "La Reserva Comunitaria Bosque Humedal Angachilla es un espacio natural protegido y gestionado por el Comité Ecológico Humedal Angachilla en las áreas de zona de protección del Santuario de la Naturaleza Humedal Angachilla y en terrenos colindantes a éste administrados por la organización, los cuales abarcan una superficie total aproximada de 20 hectáreas que proyectan conformar como una Reserva Natural Urbana.",
-      "Este lugar es rescatado y resguardado por la comunidad debido al abandono e impacto negativo que estaba sufriendo, siendo amenazado principalmente por los rellenos de tierra y escombros que arrasaron con parte del bosque humedal, además de los microbasurales, la caza y la tala ilegal que afectaron la vegetación y el hábitat de diversas especies.",
-      "La reserva comunitaria cuenta en su interior con una infraestructura sustentable con accesibilidad universal, y un programa de actividades recreativas y de educación ambiental gratuitas y abiertas para toda la comunidad. Estas iniciativas le permitieron ser reconocida dentro de la acreditación de Valdivia como Ciudad Humedal por la Convención Ramsar en julio de 2025, y ser elegida por votación popular como la iniciativa ganadora del premio Valdivia Destaca 2026 de la Ilustre Municipalidad de Valdivia, siendo valorada como un aporte relevante al desarrollo sostenible de la comuna.",
-      "Este lugar está disponible permanentemente para ser visitado por cualquier persona, por lo que requiere de tu colaboración para su cuidado y la conservación de su biodiversidad."
-    ],
-    atractivos: [
-      "Observación de Aves",
-      "Caminatas por Senderos",
-      "Fotografía de Naturaleza",
-      "Contemplación en Miradores",
-      "Reforestaciones Comunitarias",
-      "Educación Ambiental",
-      "Jornadas de Voluntariado",
-      "Encuentros Artísticos y Culturales",
-      "Actividades de Salud y Bienestar"
-    ],
-    normas: [
-      { texto: "No botar basura; ésta contamina el hábitat. Llévatela o transpórtala a los basureros cercanos.", mediaSlug: "docx-reserva-1" },
-      { texto: "Evitar venir con mascotas; de lo contrario mantenerlas con correa y supervisadas constantemente.", mediaSlug: "docx-reserva-2" },
-      { texto: "No cortar ramas ni árboles ni extraer plantas, funga y retoños.", mediaSlug: "docx-reserva-3" },
-      { texto: "Emitir el menor ruido posible para no alterar ni espantar a las aves.", mediaSlug: "docx-reserva-4" },
-      { texto: "Prohibido hacer fuego o fogatas y acampar en la reserva.", mediaSlug: "docx-reserva-5" },
-      { texto: "Transitar sólo por los senderos habilitados.", mediaSlug: "docx-reserva-6" },
-      { texto: "Prohibido el ingreso de vehículos motorizados.", mediaSlug: "docx-reserva-7" },
-      { texto: "Prohibido cazar y pescar dentro de la reserva.", mediaSlug: "docx-reserva-8" }
-    ]
-  },
+  titulo: 'Nuestra Reserva Comunitaria',
+  subtitulo: 'Reserva Natural Urbana y Santuario de la Naturaleza Bosque Humedal Angachilla',
+  parrafos: [
+    'La Reserva Comunitaria Bosque Humedal Angachilla es un área de conservación natural que alberga una gran biodiversidad que habita en su humedal palustre y sus diferentes bosques inundables. Esta se ubica en el sector sur de la ciudad de Valdivia, Región de Los Ríos, Chile. Y abarca un área de protección de aproximadamente 20 hectáreas integrada dentro del Santuario de la Naturaleza Humedales de Angachilla.',
+    'La limpieza del agua, la regulación de inundaciones y la captura de carbono son importantes servicios ecosistémicos que, como todos los humedales, esta reserva le entrega a Valdivia, la que fue declarada oficialmente como la primera “Ciudad Humedal” de Latinoamérica y la única en Chile por la Convención Ramsar en julio de 2025.',
+    'Bosque Humedal Angachilla nace como una iniciativa vecinal de proteger, conservar y valorar esta reserva natural por el cuidado de nuestra salud y bienestar. En ella se ve reflejado el trabajo comunitario, voluntario y sostenido en el tiempo por vecinos y organizaciones que creen en la fuerza de la colaboración. Esta iniciativa fue impulsada por el Comité Ecológico Bosque Humedal del Santuario Angachilla, la que fue nominada por la I. Municipalidad de Valdivia y elegida por toda la comunidad como ganadora de “Valdivia Destaca 2026”, en la categoría de ciudad sustentable.',
+  ],
+  atractivos: [
+    'Miradores, puentes y senderos inclusivos.',
+    'Avistamiento de aves, flora, fauna y funga.',
+    'Bosques y praderas para baños de naturaleza y recreación.',
+    'Tótems informativos de puntos de interés.',
+    'Espacios para talleres y actividades comunitarias.',
+    'Bancas de descanso y reflexión.',
+    'Recorridos guiados.',
+    'Navegación en kayak.',
+  ],
+  normas: [
+    { texto: 'No botar basura; ésta contamina el hábitat. Llévatela o transpórtala a los basureros cercanos.', mediaSlug: 'docx-reserva-1' },
+    { texto: 'Humedal Angachilla Zona Protegida.', mediaSlug: 'docx-reserva-2' },
+    { texto: 'Parque Natural de Bosque Nativo y Rivera.', mediaSlug: 'docx-reserva-3' },
+    { texto: 'Flora y Fauna Nativa del Bosque y Humedal.', mediaSlug: 'docx-reserva-4' },
+    { texto: 'Miradores de Paisajes y de Avistamiento.', mediaSlug: 'docx-reserva-5' },
+    { texto: 'Trekking sólo por los senderos habilitados.', mediaSlug: 'docx-reserva-6' },
+    { texto: 'Avistamiento de aves en Zonas protegidas.', mediaSlug: 'docx-reserva-7' },
+    { texto: 'Toma de Fotografías de Flora, Fauna y Paisajes.', mediaSlug: 'docx-reserva-8' },
+  ],
+},
   "acerca-comite": {
     titulo: "Comité Ecológico Humedal Angachilla",
     subtitulo: "Organización comunitaria fundada en 2020 por vecinas y vecinos de Valdivia",

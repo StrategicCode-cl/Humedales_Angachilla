@@ -1,22 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Pin,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Download,
   Heart,
   MapPin,
-  Share2,
-  Download,
   Plus,
-  X,
   Search,
-  Camera,
-  ArrowUpRight,
-  ShieldCheck,
-  Images,
-  Users
+  Share2,
+  X,
 } from 'lucide-react';
-import { CommunityPhoto, OfficialGalleryPhoto, User as UserType } from '../types';
+import { CommunityPhoto, OfficialGalleryPhoto, PointOfInterest, User as UserType } from '../types';
 import { storageService } from '../services/storageService';
 import { feedApi, resolveMediaUrl } from '../lib/api';
 
@@ -28,26 +25,45 @@ interface CommunityGalleryProps {
   onCloseCreatePin?: () => void;
 }
 
+const TOPICS = [
+  { id: 'todos', label: 'Todas' },
+  { id: 'Aves', label: 'Aves y fauna' },
+  { id: 'Atardeceres', label: 'Paisajes' },
+  { id: 'Pasarelas', label: 'Pasarelas y miradores' },
+  { id: 'Bosque', label: 'Bosque y flora' },
+  { id: 'guardados', label: 'Guardadas' },
+];
+
+const inputClass =
+  'w-full h-11 px-3 rounded-md bg-white border border-stone-300 text-base text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent';
+const labelClass = 'block text-sm font-semibold text-stone-800 mb-1';
+
+// "Estación 1: Mirador del Hualve" -> "Mirador del Hualve"
+const placeName = (name: string) => name.split(':').slice(-1)[0].trim();
+// "S1" -> 1, "E7" -> 7, for "Estación 1"
+const stationNumber = (code: string) => Number(code.replace(/\D/g, '')) || code;
+
+const share = (title: string, url: string) => {
+  if (navigator.share) navigator.share({ title, url }).catch(() => {});
+  else navigator.clipboard?.writeText(url);
+};
+
 export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
   currentUser,
   onOpenAuth,
   onGoToMapLocation,
   isCreatePinOpen,
-  onCloseCreatePin
+  onCloseCreatePin,
 }) => {
   const [galleryMode, setGalleryMode] = useState<'oficial' | 'comunidad'>('oficial');
-  const [officialPhotos, setOfficialPhotos] = useState<OfficialGalleryPhoto[]>(() =>
-    storageService.getOfficialGallery()
-  );
+  const [officialPhotos, setOfficialPhotos] = useState<OfficialGalleryPhoto[]>(() => storageService.getOfficialGallery());
+  const [photos, setPhotos] = useState<CommunityPhoto[]>(() => storageService.getCommunityPhotos());
+  const [stations, setStations] = useState<PointOfInterest[]>(() => storageService.getPointsOfInterest());
   const [selectedStationCode, setSelectedStationCode] = useState<string>('todas');
-  const [photos, setPhotos] = useState<CommunityPhoto[]>(() =>
-    storageService.getCommunityPhotos()
-  );
-  const [stations, setStations] = useState(() => storageService.getPointsOfInterest());
   const [selectedTag, setSelectedTag] = useState<string>('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPin, setSelectedPin] = useState<CommunityPhoto | null>(null);
-  const [selectedOfficialPhoto, setSelectedOfficialPhoto] = useState<OfficialGalleryPhoto | null>(null);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [showCreatePinModal, setShowCreatePinModal] = useState(false);
 
   useEffect(() => {
@@ -73,53 +89,25 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
   };
 
   const [savedPinsMap, setSavedPinsMap] = useState<Record<string, boolean>>({});
-  const [pinComments, setPinComments] = useState<
-    Record<string, { author: string; text: string; date: string }[]>
-  >({});
+  const [pinComments, setPinComments] = useState<Record<string, { author: string; text: string; date: string }[]>>({});
   const [newCommentInput, setNewCommentInput] = useState('');
 
-  // Form State for new Pin / Official Photo
+  // Form state for a new pin or official photo
   const [newPinTitle, setNewPinTitle] = useState('');
-  const [newPinPlace, setNewPinPlace] = useState(
-    stations[0]?.name || 'Estación 1: Mirador Humedal Angachilla'
-  );
+  const [newPinPlace, setNewPinPlace] = useState(stations[0]?.name || '');
   const [newPinStationCode, setNewPinStationCode] = useState('S1');
-  const [newPinImageUrl, setNewPinImageUrl] = useState('');
   const [newPinDescription, setNewPinDescription] = useState('');
   const [newPinTag, setNewPinTag] = useState('Aves');
   const [uploadAsOfficial, setUploadAsOfficial] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const realFallbackImages = [
-    resolveMediaUrl('/api/media/slug/estacion-s1-foto-1'),
-    resolveMediaUrl('/api/media/slug/estacion-s2-foto-1'),
-    resolveMediaUrl('/api/media/slug/estacion-s3-foto-1'),
-    resolveMediaUrl('/api/media/slug/estacion-s4-foto-1'),
-    resolveMediaUrl('/api/media/slug/estacion-s5-foto-1'),
-    resolveMediaUrl('/api/media/slug/estacion-s6-foto-1')
-  ];
-
-  const filterTags = [
-    { id: 'todos', label: 'Todos' },
-    { id: 'Aves', label: 'Aves y Fauna' },
-    { id: 'Atardeceres', label: 'Paisajes' },
-    { id: 'Pasarelas', label: 'Pasarelas y Miradores' },
-    { id: 'Bosque', label: 'Bosque y Hualves' },
-    { id: 'guardados', label: 'Guardados' }
-  ];
-
-  const stationFilters = [
-    { code: 'todas', label: 'Todas las Estaciones' },
-    { code: 'S1', label: 'Est. 1 · Mirador Humedal' },
-    { code: 'S2', label: 'Est. 2 · Laguna de los Pinos' },
-    { code: 'S3', label: 'Est. 3 · Espejo del Angachilla' },
-    { code: 'S4', label: 'Est. 4 · Totoral del Santuario' },
-    { code: 'S5', label: 'Est. 5 · Bosque Los Canelos' },
-    { code: 'S6', label: 'Est. 6 · Vega de la Garza' },
-    { code: 'E7', label: 'Est. 7 · Placita de la Resistencia' },
-    { code: 'E8', label: 'Est. 8 · Auditorio Vivo' },
-    { code: 'E9', label: 'Est. 9 · Espacio de Reflexión' }
-  ];
+  const stationList = [...stations]
+    .filter(s => s.code)
+    .sort((a, b) => (a.order ?? stationNumber(a.code!) as number) - (b.order ?? stationNumber(b.code!) as number));
+  const stationByCode = new Map(stationList.map(s => [s.code!, s]));
+  const stationForPin = (pin: CommunityPhoto) =>
+    (pin.stationCodigo && stationByCode.get(pin.stationCodigo)) || stationList.find(s => s.name === pin.visitedPlace);
 
   const handleToggleSavePin = (pinId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -146,9 +134,8 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
     if (file) {
       const reader = new FileReader();
       reader.onload = () => {
-        const result = reader.result as string;
-        setImagePreview(result);
-        setNewPinImageUrl(result);
+        setImagePreview(reader.result as string);
+        setFormError(null);
       };
       reader.readAsDataURL(file);
     }
@@ -160,18 +147,18 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
       onOpenAuth();
       return;
     }
-
-    const finalImage =
-      newPinImageUrl ||
-      imagePreview ||
-      realFallbackImages[Math.floor(Math.random() * realFallbackImages.length)];
+    // A pin is the visitor's own picture: never stand in a reserve photo for it
+    if (!imagePreview) {
+      setFormError('Elige una fotografía desde tu dispositivo.');
+      return;
+    }
 
     if (currentUser.role === 'admin' && uploadAsOfficial) {
       await storageService.uploadOfficialGalleryPhoto({
         stationCode: newPinStationCode,
-        title: newPinTitle || `Fotografía Oficial · Estación ${newPinStationCode}`,
+        title: newPinTitle || `Fotografía oficial · Estación ${newPinStationCode}`,
         description: newPinDescription || 'Fotografía oficial de la Reserva Comunitaria Humedal Angachilla.',
-        dataUrl: finalImage
+        dataUrl: imagePreview,
       });
       setOfficialPhotos([...storageService.getOfficialGallery()]);
       setGalleryMode('oficial');
@@ -179,12 +166,12 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
       storageService.addCommunityPhoto({
         title: newPinTitle || 'Fotografía en Humedal Angachilla',
         visitedPlace: newPinPlace,
-        imageUrl: finalImage,
+        imageUrl: imagePreview,
         authorName: currentUser.name,
         authorEmail: currentUser.email,
         description: newPinDescription || 'Visita a la Reserva Comunitaria Humedal Angachilla.',
         tags: [newPinTag, 'Comunidad'],
-        aspectRatio: 'tall'
+        aspectRatio: 'tall',
       });
       setPhotos([...storageService.getCommunityPhotos()]);
       setGalleryMode('comunidad');
@@ -193,7 +180,6 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
     handleClosePinModal();
     setNewPinTitle('');
     setNewPinDescription('');
-    setNewPinImageUrl('');
     setImagePreview(null);
   };
 
@@ -204,781 +190,704 @@ export const CommunityGallery: React.FC<CommunityGalleryProps> = ({
       onOpenAuth();
       return;
     }
-
     const text = newCommentInput.trim();
     setPinComments(prev => ({
       ...prev,
-      [selectedPin.id]: [
-        ...(prev[selectedPin.id] || []),
-        {
-          author: currentUser.name || 'Visitante',
-          text,
-          date: 'Ahora'
-        }
-      ]
+      [selectedPin.id]: [...(prev[selectedPin.id] || []), { author: currentUser.name || 'Visitante', text, date: 'Ahora' }],
     }));
     setNewCommentInput('');
     feedApi.addComment(selectedPin.id, text).catch(() => {});
   };
 
-  // Filter official gallery photos
+  const q = searchQuery.trim().toLowerCase();
+
   const filteredOfficialPhotos = officialPhotos.filter(p => {
-    if (selectedStationCode !== 'todas' && p.stationCode !== selectedStationCode) {
-      return false;
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        p.title.toLowerCase().includes(q) ||
-        p.stationName.toLowerCase().includes(q) ||
-        (p.description && p.description.toLowerCase().includes(q))
-      );
-    }
-    return true;
+    if (selectedStationCode !== 'todas' && p.stationCode !== selectedStationCode) return false;
+    if (!q) return true;
+    return (
+      p.title.toLowerCase().includes(q) ||
+      p.stationName.toLowerCase().includes(q) ||
+      (p.description && p.description.toLowerCase().includes(q))
+    );
   });
 
-  // Filter community photos
+  // Official photos grouped by station, in trail order
+  const officialGroups = stationList
+    .map(st => ({ station: st, photos: filteredOfficialPhotos.filter(p => p.stationCode === st.code) }))
+    .filter(g => g.photos.length > 0);
+  const viewerList = officialGroups.flatMap(g => g.photos);
+  const viewerPhoto = viewerIndex !== null ? viewerList[viewerIndex] : null;
+
   const filteredPhotos = photos.filter(p => {
     if (selectedTag === 'guardados') {
       if (!savedPinsMap[p.id]) return false;
     } else if (selectedTag !== 'todos') {
-      if (
-        !p.tags?.includes(selectedTag) &&
-        !p.title.toLowerCase().includes(selectedTag.toLowerCase())
-      ) {
-        return false;
-      }
+      if (!p.tags?.includes(selectedTag) && !p.title.toLowerCase().includes(selectedTag.toLowerCase())) return false;
     }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = p.title.toLowerCase().includes(q);
-      const matchPlace = p.visitedPlace.toLowerCase().includes(q);
-      const matchAuthor = p.authorName.toLowerCase().includes(q);
-      const matchTag = p.tags?.some(t => t.toLowerCase().includes(q));
-      return matchTitle || matchPlace || matchAuthor || matchTag;
-    }
-
-    return true;
+    if (!q) return true;
+    return (
+      p.title.toLowerCase().includes(q) ||
+      p.visitedPlace.toLowerCase().includes(q) ||
+      p.authorName.toLowerCase().includes(q) ||
+      !!p.tags?.some(t => t.toLowerCase().includes(q))
+    );
   });
 
-  return (
-    <div className="w-full min-h-screen bg-stone-50 pb-20">
-      {/* --- TOP BAR: MODE SWITCHER (OFICIAL POR ESTACIÓN vs COMUNIDAD MONGODB) + SEARCH --- */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-stone-200 px-3 sm:px-6 py-2.5 shadow-sm">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          {/* Segmented Toggle: Galería Oficial vs Pines de la Comunidad */}
-          <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200/80 shrink-0">
-            <button
-              type="button"
-              onClick={() => setGalleryMode('oficial')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                galleryMode === 'oficial'
-                  ? 'bg-emerald-900 text-white shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <Images className="w-3.5 h-3.5" />
-              <span>Galería Oficial por Estación</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setGalleryMode('comunidad')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                galleryMode === 'comunidad'
-                  ? 'bg-emerald-900 text-white shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Pines de la Comunidad</span>
-            </button>
-          </div>
+  const photoCountByStation = (code: string) => officialPhotos.filter(p => p.stationCode === code).length;
 
-          <div className="flex items-center gap-2 flex-1 max-w-xl">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder={
-                  galleryMode === 'oficial'
-                    ? 'Buscar por estación, mirador, laguna o bosque...'
-                    : 'Buscar pines de la comunidad...'
-                }
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 rounded-full bg-stone-100 hover:bg-stone-200/80 focus:bg-white border border-transparent focus:border-stone-300 text-xs text-stone-800 placeholder-stone-400 focus:outline-none transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+  // Keyboard for the open viewer or pin
+  useEffect(() => {
+    if (viewerIndex === null && !selectedPin) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setViewerIndex(null);
+        setSelectedPin(null);
+      }
+      if (viewerIndex !== null && viewerList.length > 1) {
+        if (e.key === 'ArrowRight') setViewerIndex((viewerIndex + 1) % viewerList.length);
+        if (e.key === 'ArrowLeft') setViewerIndex((viewerIndex - 1 + viewerList.length) % viewerList.length);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewerIndex, viewerList.length, selectedPin]);
+
+  const openUpload = () => {
+    if (!currentUser) onOpenAuth();
+    else setShowCreatePinModal(true);
+  };
+
+  const filterChip = (active: boolean) =>
+    `h-9 px-3 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+      active ? 'bg-stone-900 border-stone-900 text-white' : 'bg-white border-stone-300 text-stone-800 hover:bg-stone-50'
+    }`;
+
+  return (
+    <div className="w-full pb-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-9">
+        {/* Title row */}
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-stone-950">Galería</h1>
+            <p className="mt-1 text-base text-stone-700">
+              Fotografías de las 9 estaciones de la reserva y de quienes la visitan.
+            </p>
+          </div>
+          <button
+            id="create-pin-button"
+            type="button"
+            onClick={openUpload}
+            className="h-10 px-4 rounded-md bg-emerald-900 hover:bg-emerald-800 active:bg-emerald-950 text-white text-sm font-semibold inline-flex items-center gap-1.5 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Subir foto
+          </button>
+        </header>
+
+        {/* Official / community */}
+        <div role="tablist" aria-label="Tipo de fotografías" className="mt-5 flex gap-6 border-b border-stone-300">
+          {(
+            [
+              { id: 'oficial', label: 'Fotos oficiales', count: officialPhotos.length },
+              { id: 'comunidad', label: 'De la comunidad', count: photos.length },
+            ] as const
+          ).map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={galleryMode === tab.id}
+              onClick={() => {
+                setGalleryMode(tab.id);
+                setSearchQuery('');
+              }}
+              className={`-mb-px py-2.5 border-b-2 text-sm font-medium transition-colors ${
+                galleryMode === tab.id ? 'border-stone-900 text-stone-950' : 'border-transparent text-stone-600 hover:text-stone-950'
+              }`}
+            >
+              {tab.label} <span className="text-stone-500 tabular-nums">{tab.count}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Search, then one swipeable row of filters */}
+        <div className="mt-4 flex flex-col gap-3">
+          <label className="relative block w-full sm:max-w-md">
+            <span className="sr-only">Buscar fotografías</span>
+            <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="search"
+              placeholder={galleryMode === 'oficial' ? 'Buscar: laguna, mirador, bosque…' : 'Buscar por foto, lugar o autor…'}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className={`${inputClass} pl-9 pr-10 [&::-webkit-search-cancel-button]:hidden`}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Borrar búsqueda"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md flex items-center justify-center text-stone-500 hover:text-stone-900 hover:bg-stone-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </label>
+
+          <div className="-mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-none">
+            <div className="flex gap-2 w-max pb-1" role="group" aria-label={galleryMode === 'oficial' ? 'Estación' : 'Tema'}>
+              {galleryMode === 'oficial' ? (
+                <>
+                  <button type="button" onClick={() => setSelectedStationCode('todas')} aria-pressed={selectedStationCode === 'todas'} className={filterChip(selectedStationCode === 'todas')}>
+                    Todas las estaciones
+                  </button>
+                  {stationList
+                    .filter(st => photoCountByStation(st.code!) > 0)
+                    .map(st => (
+                      <button
+                        key={st.code}
+                        type="button"
+                        onClick={() => setSelectedStationCode(st.code!)}
+                        aria-pressed={selectedStationCode === st.code}
+                        className={filterChip(selectedStationCode === st.code)}
+                      >
+                        {stationNumber(st.code!)} · {placeName(st.name)}
+                      </button>
+                    ))}
+                </>
+              ) : (
+                TOPICS.map(tag => (
+                  <button key={tag.id} type="button" onClick={() => setSelectedTag(tag.id)} aria-pressed={selectedTag === tag.id} className={filterChip(selectedTag === tag.id)}>
+                    {tag.label}
+                  </button>
+                ))
               )}
             </div>
-
-            <button
-              id="create-pin-button"
-              onClick={() => {
-                if (!currentUser) onOpenAuth();
-                else setShowCreatePinModal(true);
-              }}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm active:scale-95 transition-all flex-shrink-0"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Subir Foto</span>
-            </button>
           </div>
         </div>
 
-        {/* Station Filter Pills (when in Official Gallery mode) or Topic Pills (when in Community mode) */}
-        <div className="max-w-7xl mx-auto mt-2.5 flex items-center space-x-2 overflow-x-auto scrollbar-none pb-1">
-          {galleryMode === 'oficial'
-            ? stationFilters.map(st => (
-                <button
-                  key={st.code}
-                  onClick={() => setSelectedStationCode(st.code)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                    selectedStationCode === st.code
-                      ? 'bg-stone-900 text-white shadow-sm'
-                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                  }`}
-                >
-                  {st.label}
-                </button>
-              ))
-            : filterTags.map(tag => (
-                <button
-                  key={tag.id}
-                  onClick={() => setSelectedTag(tag.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                    selectedTag === tag.id
-                      ? 'bg-stone-900 text-white shadow-sm'
-                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                  }`}
-                >
-                  {tag.label}
-                </button>
-              ))}
-        </div>
-      </div>
-
-      {/* --- VIEW 1: GALERÍA OFICIAL DE LA RESERVA (19 FOTOS DE LAS 9 ESTACIONES) --- */}
-      {galleryMode === 'oficial' && (
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-          {filteredOfficialPhotos.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-3xl border border-stone-200 p-8 max-w-md mx-auto">
-              <Camera className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-stone-800">
-                Sin fotografías en este filtro
-              </h3>
+        {/* Official photos, one block per station */}
+        {galleryMode === 'oficial' &&
+          (officialGroups.length === 0 ? (
+            <div className="mt-8 rounded-md border border-dashed border-stone-300 px-4 py-8 text-center">
+              <p className="text-base text-stone-700">No hay fotografías con ese filtro.</p>
               <button
+                type="button"
                 onClick={() => {
                   setSelectedStationCode('todas');
                   setSearchQuery('');
                 }}
-                className="mt-4 px-4 py-2 bg-stone-900 text-white rounded-full text-xs font-bold"
+                className="mt-3 h-10 px-4 rounded-md border border-stone-300 bg-white hover:bg-stone-50 text-sm font-medium text-stone-900"
               >
                 Ver todas las estaciones
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-              {filteredOfficialPhotos.map(photo => (
-                <article
-                  key={photo.id}
-                  onClick={() => setSelectedOfficialPhoto(photo)}
-                  className="group bg-white rounded-3xl border border-stone-200/90 overflow-hidden shadow-xs hover:shadow-lg transition-all cursor-zoom-in flex flex-col"
+            <div className="mt-8 space-y-12">
+              {officialGroups.map(({ station, photos: list }) => {
+                // Layout by count so no row is left with a hole: 3 = one large and two stacked
+                const lead = list.length === 3;
+                const gridCols =
+                  list.length === 1
+                    ? 'grid-cols-1'
+                    : list.length === 2
+                    ? 'grid-cols-2'
+                    : lead
+                    ? 'grid-cols-2 sm:grid-cols-3'
+                    : list.length === 4
+                    ? 'grid-cols-2 lg:grid-cols-4'
+                    : 'grid-cols-2 lg:grid-cols-3';
+                return (
+                  <section key={station.code} aria-labelledby={`est-${station.code}`}>
+                    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                      <div className="min-w-0">
+                        <h2 id={`est-${station.code}`} className="text-xl font-semibold tracking-tight text-stone-950">
+                          {placeName(station.name)}
+                        </h2>
+                        <p className="text-sm text-stone-600">
+                          Estación {stationNumber(station.code!)}
+                          {station.subtitle ? ` · ${station.subtitle}` : ''}
+                        </p>
+                      </div>
+                      {onGoToMapLocation && (
+                        <button
+                          type="button"
+                          onClick={() => onGoToMapLocation(station.coordinates)}
+                          className="text-sm font-medium text-stone-900 underline underline-offset-2 hover:text-emerald-900 inline-flex items-center gap-1"
+                        >
+                          <MapPin className="w-4 h-4 text-stone-500" />
+                          Ver en el mapa
+                        </button>
+                      )}
+                    </div>
+                    <div className={`mt-3 grid gap-2 sm:gap-3 ${gridCols}`}>
+                      {list.map((photo, i) => {
+                        const big = lead && i === 0;
+                        return (
+                          <button
+                            key={photo.id}
+                            type="button"
+                            onClick={() => setViewerIndex(viewerList.indexOf(photo))}
+                            aria-label={`Ampliar: ${photo.title}`}
+                            className={`group relative overflow-hidden rounded-md bg-stone-200 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-stone-900 ${
+                              big ? 'col-span-2 sm:row-span-2 aspect-[4/3] sm:aspect-auto' : list.length === 1 ? 'aspect-[4/3] sm:aspect-[21/9]' : 'aspect-[4/3]'
+                            }`}
+                          >
+                            <img
+                              src={resolveMediaUrl(photo.imageUrl)}
+                              alt={photo.title}
+                              loading="lazy"
+                              className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          ))}
+
+        {/* Community pins: masonry at each photo's own proportions, details always visible */}
+        {galleryMode === 'comunidad' &&
+          (filteredPhotos.length === 0 ? (
+            <div className="mt-8 rounded-md border border-dashed border-stone-300 px-4 py-8 text-center">
+              <p className="text-base text-stone-700">
+                {selectedTag === 'guardados' ? 'Aún no guardas fotografías.' : 'No hay fotografías con ese filtro.'}
+              </p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTag('todos');
+                    setSearchQuery('');
+                  }}
+                  className="h-10 px-4 rounded-md border border-stone-300 bg-white hover:bg-stone-50 text-sm font-medium text-stone-900"
                 >
-                  <div className="relative aspect-[4/3] bg-stone-200 overflow-hidden">
+                  Ver todas
+                </button>
+                <button type="button" onClick={openUpload} className="h-10 px-4 rounded-md bg-emerald-900 hover:bg-emerald-800 text-white text-sm font-semibold">
+                  Subir la primera
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 columns-2 md:columns-3 lg:columns-4 gap-3 sm:gap-4">
+              {filteredPhotos.map(photo => (
+                <article key={photo.id} className="group mb-5 break-inside-avoid">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPin(photo)}
+                    aria-label={`Ver: ${photo.title}`}
+                    className="block w-full overflow-hidden rounded-md bg-stone-200 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-stone-900"
+                  >
                     <img
                       src={resolveMediaUrl(photo.imageUrl)}
                       alt={photo.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
+                      className="w-full h-auto transition-transform duration-500 ease-out group-hover:scale-[1.03]"
                     />
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-950/85 text-white backdrop-blur-md">
-                        Estación {photo.stationCode}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-sm font-extrabold text-stone-900 leading-snug">
-                        {photo.title}
-                      </h3>
-                      <p className="text-xs text-stone-600 mt-1 line-clamp-2">
-                        {photo.description || photo.stationName}
+                  </button>
+                  <div className="mt-2 flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold leading-snug text-stone-950 line-clamp-2">{photo.title}</h3>
+                      <p className="mt-0.5 text-[13px] text-stone-600 truncate">
+                        {photo.authorName} · {placeName(photo.visitedPlace)}
                       </p>
                     </div>
-                    <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between text-[11px] text-emerald-800 font-bold">
-                      <span className="flex items-center gap-1">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                        Archivo Oficial Reserva Angachilla
-                      </span>
-                      <span>Ver foto ›</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={e => handleLikePin(photo.id, e)}
+                      aria-pressed={!!photo.likedByMe}
+                      aria-label={`${photo.likedByMe ? 'Quitar me gusta' : 'Me gusta'} (${photo.likes})`}
+                      className={`shrink-0 h-8 px-2 -mr-1 rounded-md inline-flex items-center gap-1 text-[13px] tabular-nums transition-colors ${
+                        photo.likedByMe ? 'text-rose-700' : 'text-stone-600 hover:text-stone-950 hover:bg-stone-100'
+                      }`}
+                    >
+                      <Heart className={`w-4 h-4 ${photo.likedByMe ? 'fill-rose-600 text-rose-600' : ''}`} />
+                      {photo.likes}
+                    </button>
                   </div>
                 </article>
               ))}
             </div>
-          )}
-        </div>
-      )}
+          ))}
+      </div>
 
-      {/* --- VIEW 2: PINTEREST MASONRY GRID (COMUNIDAD MONGODB) --- */}
-      {galleryMode === 'comunidad' && (
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-          {filteredPhotos.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-3xl border border-stone-200 p-8 max-w-md mx-auto">
-              <Camera className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-stone-800">No se encontraron pines</h3>
-              <p className="text-xs text-stone-500 mt-1 mb-4">
-                Prueba con otro filtro o sube la primera foto de este rincón del humedal.
-              </p>
-              <button
-                onClick={() => {
-                  setSelectedTag('todos');
-                  setSearchQuery('');
-                }}
-                className="px-4 py-2 bg-stone-900 text-white rounded-full text-xs font-bold"
-              >
-                Ver todos los pines
-              </button>
-            </div>
-          ) : (
-            <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3.5 sm:gap-4 space-y-3.5 sm:space-y-4">
-              {filteredPhotos.map((photo, index) => {
-                const isSaved = !!savedPinsMap[photo.id];
-                const heightRatios = [
-                  'aspect-[3/4]',
-                  'aspect-[4/5]',
-                  'aspect-[1/1]',
-                  'aspect-[4/3]'
-                ];
-                const assignedRatio =
-                  photo.aspectRatio === 'tall'
-                    ? 'aspect-[3/4]'
-                    : photo.aspectRatio === 'wide'
-                    ? 'aspect-[4/3]'
-                    : heightRatios[index % heightRatios.length];
-
-                return (
-                  <div
-                    key={photo.id}
-                    onClick={() => setSelectedPin(photo)}
-                    className="break-inside-avoid group relative rounded-2xl sm:rounded-3xl overflow-hidden cursor-zoom-in bg-stone-200 shadow-sm hover:shadow-xl transition-all duration-300"
-                  >
-                    <div className={`relative w-full ${assignedRatio} overflow-hidden bg-stone-100`}>
-                      <img
-                        src={resolveMediaUrl(photo.imageUrl)}
-                        alt={photo.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                      />
-
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-
-                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <span className="text-[10px] font-bold text-white bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full flex items-center gap-1 truncate max-w-[120px]">
-                          <MapPin className="w-2.5 h-2.5 text-emerald-400 flex-shrink-0" />
-                          <span className="truncate">{photo.visitedPlace.split(':')[0]}</span>
-                        </span>
-
-                        <button
-                          onClick={e => handleToggleSavePin(photo.id, e)}
-                          className={`pointer-events-auto px-3 py-1.5 rounded-full text-xs font-black shadow-lg transition-transform active:scale-90 ${
-                            isSaved
-                              ? 'bg-stone-900 text-white hover:bg-black'
-                              : 'bg-rose-600 hover:bg-rose-700 text-white'
-                          }`}
-                        >
-                          {isSaved ? 'Guardado' : 'Guardar'}
-                        </button>
-                      </div>
-
-                      <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-white text-[11px] font-medium max-w-[140px] truncate">
-                          <img
-                            src={
-                              photo.authorAvatar
-                                ? resolveMediaUrl(photo.authorAvatar)
-                                : resolveMediaUrl('/api/media/slug/svg-simbolo-angachilla-app')
-                            }
-                            alt={photo.authorName}
-                            className="w-4 h-4 rounded-full object-cover bg-emerald-900"
-                          />
-                          <span className="truncate">{photo.authorName}</span>
-                        </div>
-
-                        <div className="flex items-center gap-1 pointer-events-auto">
-                          <button
-                            onClick={e => handleLikePin(photo.id, e)}
-                            className={`p-1.5 rounded-full backdrop-blur-md transition-all active:scale-125 ${
-                              photo.likedByMe
-                                ? 'bg-rose-500 text-white'
-                                : 'bg-white/80 text-stone-800 hover:bg-white'
-                            }`}
-                            title="Me gusta (1 por usuario)"
-                          >
-                            <Heart className={`w-3.5 h-3.5 ${photo.likedByMe ? 'fill-white' : ''}`} />
-                          </button>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              if (navigator.share) {
-                                navigator.share({ title: photo.title, url: photo.imageUrl });
-                              } else {
-                                navigator.clipboard?.writeText(window.location.href);
-                              }
-                            }}
-                            className="p-1.5 rounded-full bg-white/80 text-stone-800 hover:bg-white backdrop-blur-md transition-all active:scale-95"
-                            title="Compartir"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-2 sm:p-2.5 bg-white">
-                      <h4 className="text-xs font-bold text-stone-900 line-clamp-1 leading-snug">
-                        {photo.title}
-                      </h4>
-                      <div className="flex items-center justify-between mt-1 text-[11px] text-stone-500">
-                        <span className="truncate max-w-[110px]">{photo.authorName}</span>
-                        <span className="flex items-center gap-0.5 font-bold text-stone-700">
-                          <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
-                          <span>{photo.likes}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* --- OFFICIAL PHOTO LIGHTBOX MODAL --- */}
-      {selectedOfficialPhoto && (
+      {/* Official photo viewer: whole picture on black, previous / next through the visible set */}
+      {viewerPhoto && viewerIndex !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-150"
-          onClick={() => setSelectedOfficialPhoto(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={viewerPhoto.title}
+          className="fixed inset-0 z-[60] bg-stone-950 flex flex-col"
+          onClick={() => setViewerIndex(null)}
         >
-          <div
-            className="bg-white rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-stone-200"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="relative aspect-[16/10] bg-stone-950">
-              <img
-                src={resolveMediaUrl(selectedOfficialPhoto.imageUrl)}
-                alt={selectedOfficialPhoto.title}
-                className="w-full h-full object-contain"
-              />
-              <button
-                onClick={() => setSelectedOfficialPhoto(null)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/90 text-stone-900 hover:bg-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                  Estación {selectedOfficialPhoto.stationCode} · {selectedOfficialPhoto.stationName}
-                </span>
-                <h3 className="text-lg font-black text-stone-900 mt-1.5">
-                  {selectedOfficialPhoto.title}
-                </h3>
-                {selectedOfficialPhoto.description && (
-                  <p className="text-xs text-stone-600 mt-1">
-                    {selectedOfficialPhoto.description}
-                  </p>
-                )}
-              </div>
-              {onGoToMapLocation && (
-                <button
-                  onClick={() => {
-                    const st = stations.find(s => s.code === selectedOfficialPhoto.stationCode);
-                    setSelectedOfficialPhoto(null);
-                    onGoToMapLocation(st?.coordinates || [-39.8565, -73.2385]);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shrink-0"
-                >
-                  <MapPin className="w-4 h-4" />
-                  <span>Ir a esta Estación en el Mapa</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- PINTEREST DETAILED PIN MODAL --- */}
-      {selectedPin && (
-        <div
-          id="pinterest-pin-modal"
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setSelectedPin(null)}
-        >
-          <div
-            className="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col md:flex-row border border-stone-200 relative"
-            onClick={e => e.stopPropagation()}
-          >
+          <div className="flex items-center justify-between gap-3 px-4 py-3 text-white" onClick={e => e.stopPropagation()}>
+            <p className="text-sm text-stone-300 tabular-nums">
+              {viewerIndex + 1} de {viewerList.length}
+            </p>
             <button
-              id="close-pin-modal-button"
-              onClick={() => setSelectedPin(null)}
-              className="absolute top-4 right-4 z-20 p-2 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
+              type="button"
+              onClick={() => setViewerIndex(null)}
+              aria-label="Cerrar"
+              className="w-10 h-10 rounded-md flex items-center justify-center text-white hover:bg-white/10"
             >
               <X className="w-5 h-5" />
             </button>
-
-            <div className="relative md:w-1/2 bg-stone-950 flex items-center justify-center overflow-hidden min-h-[280px] md:min-h-[480px]">
-              <img
-                src={resolveMediaUrl(selectedPin.imageUrl)}
-                alt={selectedPin.title}
-                className="w-full h-full object-cover max-h-[75vh]"
-              />
-
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white text-xs">
-                <span className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-1.5 font-semibold">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>{selectedPin.visitedPlace}</span>
-                </span>
-
-                <a
-                  href={resolveMediaUrl(selectedPin.imageUrl)}
-                  target="_blank"
-                  rel="noreferrer"
-                  download
-                  className="p-2 rounded-full bg-black/60 backdrop-blur-md hover:bg-black/90 transition-colors"
-                  title="Abrir imagen completa"
-                >
-                  <Download className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-
-            <div className="md:w-1/2 p-5 sm:p-7 flex flex-col justify-between overflow-y-auto max-h-[50vh] md:max-h-[85vh]">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleLikePin(selectedPin.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                        selectedPin.likedByMe
-                          ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                          : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${selectedPin.likedByMe ? 'fill-rose-600' : ''}`} />
-                      <span>{selectedPin.likes}</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        if (navigator.share) {
-                          navigator.share({ title: selectedPin.title, url: selectedPin.imageUrl });
-                        } else {
-                          navigator.clipboard?.writeText(window.location.href);
-                        }
-                      }}
-                      className="p-2 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
-                      title="Compartir Pin"
-                    >
-                      <Share2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => handleToggleSavePin(selectedPin.id)}
-                    className={`px-5 py-2 rounded-full text-xs font-extrabold shadow-md transition-all active:scale-95 ${
-                      savedPinsMap[selectedPin.id]
-                        ? 'bg-stone-900 text-white'
-                        : 'bg-rose-600 hover:bg-rose-700 text-white'
-                    }`}
-                  >
-                    {savedPinsMap[selectedPin.id] ? 'Guardado' : 'Guardar Pin'}
-                  </button>
-                </div>
-
-                <div className="flex items-center space-x-3 my-4">
-                  <img
-                    src={
-                      selectedPin.authorAvatar
-                        ? resolveMediaUrl(selectedPin.authorAvatar)
-                        : resolveMediaUrl('/api/media/slug/svg-simbolo-angachilla-app')
-                    }
-                    alt={selectedPin.authorName}
-                    className="w-10 h-10 rounded-full object-cover border bg-emerald-900 p-1"
-                  />
-                  <div className="flex-1">
-                    <h5 className="font-extrabold text-sm text-stone-900 leading-none">
-                      {selectedPin.authorName}
-                    </h5>
-                    <span className="text-[11px] text-stone-500">
-                      Comunidad Humedal Angachilla • {selectedPin.date}
-                    </span>
-                  </div>
-                </div>
-
-                <h2 className="text-xl sm:text-2xl font-black text-stone-900 leading-tight">
-                  {selectedPin.title}
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
-                  {selectedPin.description}
-                </p>
-
-                {selectedPin.tags && selectedPin.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {selectedPin.tags.map((t, i) => (
-                      <span
-                        key={i}
-                        className="text-[10px] font-bold text-stone-600 bg-stone-100 px-2.5 py-1 rounded-full"
-                      >
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-4 p-3 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-xs text-emerald-900">
-                    <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                    <div>
-                      <span className="font-bold block">{selectedPin.visitedPlace}</span>
-                      <span className="text-[11px] text-emerald-700">Reserva Comunitaria Humedal Angachilla</span>
-                    </div>
-                  </div>
-
-                  {onGoToMapLocation && (
-                    <button
-                      onClick={() => {
-                        setSelectedPin(null);
-                        onGoToMapLocation([-39.8562, -73.2392]);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm"
-                    >
-                      <span>Ver en Mapa</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-stone-100 space-y-2.5">
-                  <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
-                    Comentarios ({(pinComments[selectedPin.id] || []).length})
-                  </h4>
-
-                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                    {(pinComments[selectedPin.id] || []).map((c, i) => (
-                      <div
-                        key={i}
-                        className="text-xs text-stone-700 bg-stone-50 p-2.5 rounded-xl border border-stone-100"
-                      >
-                        <div className="flex items-center justify-between font-bold text-stone-900 mb-0.5">
-                          <span>{c.author}</span>
-                          <span className="text-[10px] text-stone-400 font-normal">{c.date}</span>
-                        </div>
-                        <p className="text-[11px] text-stone-600 leading-relaxed">{c.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <form
-                onSubmit={handleAddCommentToPin}
-                className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-2"
-              >
-                <input
-                  type="text"
-                  placeholder="Escribe un comentario sobre esta fotografía..."
-                  value={newCommentInput}
-                  onChange={e => setNewCommentInput(e.target.value)}
-                  className="flex-1 px-3.5 py-2 rounded-full bg-stone-100 border border-transparent focus:border-stone-300 text-xs focus:outline-none"
-                />
+          </div>
+          <div className="relative flex-1 min-h-0 flex items-center justify-center px-2 sm:px-16">
+            <img
+              src={resolveMediaUrl(viewerPhoto.imageUrl)}
+              alt={viewerPhoto.title}
+              className="max-w-full max-h-full object-contain"
+              onClick={e => e.stopPropagation()}
+            />
+            {viewerList.length > 1 && (
+              <>
                 <button
-                  type="submit"
-                  disabled={!newCommentInput.trim()}
-                  className="px-4 py-2 rounded-full bg-stone-900 text-white text-xs font-bold disabled:opacity-40"
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setViewerIndex((viewerIndex - 1 + viewerList.length) % viewerList.length);
+                  }}
+                  aria-label="Foto anterior"
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-md bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
                 >
-                  Enviar
+                  <ChevronLeft className="w-6 h-6" />
                 </button>
-              </form>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setViewerIndex((viewerIndex + 1) % viewerList.length);
+                  }}
+                  aria-label="Foto siguiente"
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-md bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
+          <div
+            className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white pb-[max(1rem,env(safe-area-inset-bottom))]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="min-w-0">
+              <p className="text-base font-semibold">
+                {placeName(viewerPhoto.stationName)}{' '}
+                <span className="font-normal text-stone-400">· Estación {stationNumber(viewerPhoto.stationCode)}</span>
+              </p>
+              {viewerPhoto.description && <p className="mt-0.5 text-sm text-stone-300">{viewerPhoto.description}</p>}
             </div>
+            {onGoToMapLocation && (
+              <button
+                type="button"
+                onClick={() => {
+                  const coords = viewerPhoto.coordinates || stationByCode.get(viewerPhoto.stationCode)?.coordinates;
+                  setViewerIndex(null);
+                  if (coords) onGoToMapLocation(coords);
+                }}
+                className="h-10 px-4 rounded-md bg-white text-stone-950 hover:bg-stone-100 text-sm font-semibold inline-flex items-center gap-1.5 shrink-0"
+              >
+                <MapPin className="w-4 h-4" />
+                Ver en el mapa
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* --- CREATE PIN / UPLOAD OFFICIAL STATION PHOTO MODAL --- */}
+      {/* Community pin detail */}
+      {selectedPin &&
+        (() => {
+          const pinStation = stationForPin(selectedPin);
+          const comments = pinComments[selectedPin.id] || [];
+          return (
+            <div
+              id="pinterest-pin-modal"
+              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-6 bg-stone-950/75"
+              onClick={() => setSelectedPin(null)}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="pin-title"
+                className="relative bg-white rounded-t-lg sm:rounded-lg max-w-4xl w-full max-h-[92dvh] overflow-hidden shadow-2xl flex flex-col md:flex-row"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  id="close-pin-modal-button"
+                  type="button"
+                  onClick={() => setSelectedPin(null)}
+                  aria-label="Cerrar"
+                  className="absolute top-3 right-3 z-20 w-10 h-10 rounded-md bg-white/95 text-stone-900 hover:bg-white flex items-center justify-center"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="md:w-1/2 bg-stone-950 flex items-center justify-center min-h-[240px] max-h-[45dvh] md:max-h-none">
+                  <img src={resolveMediaUrl(selectedPin.imageUrl)} alt={selectedPin.title} className="w-full h-full max-h-[45dvh] md:max-h-[85dvh] object-contain" />
+                </div>
+
+                <div className="md:w-1/2 flex flex-col min-h-0">
+                  <div className="p-5 sm:p-6 overflow-y-auto">
+                    <p className="text-sm text-stone-600">
+                      <span className="font-semibold text-stone-900">{selectedPin.authorName}</span> · {selectedPin.date}
+                    </p>
+                    <h2 id="pin-title" className="mt-1 pr-10 md:pr-0 text-xl sm:text-2xl font-semibold tracking-tight leading-snug text-stone-950">
+                      {selectedPin.title}
+                    </h2>
+                    {selectedPin.description && <p className="mt-2 text-base leading-relaxed text-stone-700">{selectedPin.description}</p>}
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleLikePin(selectedPin.id)}
+                        aria-pressed={!!selectedPin.likedByMe}
+                        className={`h-10 px-3 rounded-md border text-sm font-medium inline-flex items-center gap-1.5 tabular-nums transition-colors ${
+                          selectedPin.likedByMe ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-stone-300 text-stone-900 hover:bg-stone-50'
+                        }`}
+                      >
+                        <Heart className={`w-4 h-4 ${selectedPin.likedByMe ? 'fill-rose-600 text-rose-600' : ''}`} />
+                        {selectedPin.likes}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSavePin(selectedPin.id)}
+                        aria-pressed={!!savedPinsMap[selectedPin.id]}
+                        className={`h-10 px-3 rounded-md text-sm font-semibold transition-colors ${
+                          savedPinsMap[selectedPin.id] ? 'bg-stone-900 text-white' : 'border border-stone-300 text-stone-900 hover:bg-stone-50'
+                        }`}
+                      >
+                        {savedPinsMap[selectedPin.id] ? 'Guardada' : 'Guardar'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => share(selectedPin.title, resolveMediaUrl(selectedPin.imageUrl))}
+                        aria-label="Compartir"
+                        className="w-10 h-10 rounded-md border border-stone-300 text-stone-700 hover:bg-stone-50 flex items-center justify-center"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <a
+                        href={resolveMediaUrl(selectedPin.imageUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        download
+                        aria-label="Abrir imagen completa"
+                        className="w-10 h-10 rounded-md border border-stone-300 text-stone-700 hover:bg-stone-50 flex items-center justify-center"
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between gap-3 rounded-md bg-stone-100 px-3.5 py-3">
+                      <p className="min-w-0 text-sm">
+                        <span className="block font-semibold text-stone-950">{placeName(selectedPin.visitedPlace)}</span>
+                        <span className="text-stone-600">
+                          {pinStation?.code ? `Estación ${stationNumber(pinStation.code)}` : 'Reserva Comunitaria Humedal Angachilla'}
+                        </span>
+                      </p>
+                      {onGoToMapLocation && pinStation && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPin(null);
+                            onGoToMapLocation(pinStation.coordinates);
+                          }}
+                          className="h-9 px-3 rounded-md bg-white border border-stone-300 hover:bg-stone-50 text-sm font-medium text-stone-900 inline-flex items-center gap-1.5 shrink-0"
+                        >
+                          <MapPin className="w-4 h-4 text-stone-500" />
+                          Ver en el mapa
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-6">
+                      <h3 className="text-sm font-semibold text-stone-950">
+                        Comentarios <span className="font-normal text-stone-500 tabular-nums">{comments.length}</span>
+                      </h3>
+                      {comments.length === 0 ? (
+                        <p className="mt-1 text-sm text-stone-600">Sé la primera persona en comentar.</p>
+                      ) : (
+                        <ul className="mt-2 space-y-3">
+                          {comments.map((c, i) => (
+                            <li key={i} className="text-sm">
+                              <span className="font-semibold text-stone-950">{c.author}</span>{' '}
+                              <span className="text-stone-500">{c.date}</span>
+                              <p className="mt-0.5 text-stone-700 leading-relaxed">{c.text}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <form
+                    onSubmit={handleAddCommentToPin}
+                    className="mt-auto px-5 sm:px-6 py-3 border-t border-stone-200 flex items-center gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                  >
+                    <label className="sr-only" htmlFor="pin-comment">
+                      Escribe un comentario
+                    </label>
+                    <input
+                      id="pin-comment"
+                      type="text"
+                      placeholder="Escribe un comentario"
+                      value={newCommentInput}
+                      onChange={e => setNewCommentInput(e.target.value)}
+                      className={`${inputClass} h-10`}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newCommentInput.trim()}
+                      className="h-10 px-4 rounded-md bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold disabled:bg-stone-300 shrink-0"
+                    >
+                      Enviar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* Upload a pin, or an official station photo for the guardaparques */}
       {showCreatePinModal && (
         <div
           id="create-pin-modal"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4 bg-stone-950/75"
           onClick={handleClosePinModal}
         >
           <div
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 max-h-[92vh] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upload-title"
+            className="bg-white rounded-t-lg sm:rounded-lg max-w-lg w-full p-6 shadow-2xl max-h-[92dvh] overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                  <Pin className="w-4 h-4" />
-                </div>
-                <h3 className="text-base font-extrabold text-stone-900">
-                  Subir Fotografía a la Galería
-                </h3>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="upload-title" className="text-xl font-semibold tracking-tight text-stone-950">
+                  Subir una fotografía
+                </h2>
+                <p className="mt-0.5 text-sm text-stone-600">Comparte lo que viste en la reserva.</p>
               </div>
               <button
+                type="button"
                 onClick={handleClosePinModal}
-                className="text-stone-400 hover:text-stone-700"
+                aria-label="Cerrar"
+                className="w-8 h-8 -mr-1 rounded-md flex items-center justify-center text-stone-500 hover:bg-stone-100 hover:text-stone-900"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreatePin} className="mt-4 space-y-3.5">
+            <form onSubmit={handleCreatePin} className="mt-5 space-y-4">
               {currentUser?.role === 'admin' && (
-                <label className="flex items-center gap-2 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-950 cursor-pointer">
+                <label className="flex items-center gap-2.5 rounded-md bg-stone-100 px-3 py-2.5 text-sm font-medium text-stone-900 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={uploadAsOfficial}
                     onChange={e => setUploadAsOfficial(e.target.checked)}
-                    className="rounded text-emerald-700"
+                    className="w-4 h-4 accent-stone-900"
                   />
-                  <span>
-                    Subir como Fotografía Oficial de Estación
-                  </span>
+                  Subir como fotografía oficial de una estación
                 </label>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Fotografía desde tu dispositivo *
-                </label>
-                <div className="flex items-center gap-2">
-                  <label className="cursor-pointer w-full px-3.5 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold flex items-center justify-center gap-2 border border-stone-300">
-                    <Camera className="w-4 h-4 text-emerald-700" />
-                    <span>Seleccionar archivo de imagen</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
+                <span className={labelClass}>Fotografía</span>
+                {imagePreview ? (
+                  <div className="relative overflow-hidden rounded-md bg-stone-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imagePreview} alt="Vista previa" className="w-full max-h-64 object-contain" />
+                    <label className="absolute bottom-2 right-2 h-9 px-3 rounded-md bg-white/95 border border-stone-300 text-sm font-medium text-stone-900 inline-flex items-center gap-1.5 cursor-pointer hover:bg-white">
+                      <Camera className="w-4 h-4 text-stone-500" />
+                      Cambiar
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="sr-only" />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-1.5 h-36 rounded-md border border-dashed border-stone-400 bg-stone-50 hover:bg-stone-100 text-stone-700 cursor-pointer transition-colors">
+                    <Camera className="w-6 h-6 text-stone-500" />
+                    <span className="text-sm font-medium">Elegir desde tu dispositivo</span>
+                    <span className="text-[13px] text-stone-500">o tomar una foto con la cámara</span>
+                    <input type="file" accept="image/*" onChange={handleFileUpload} className="sr-only" />
                   </label>
-                </div>
+                )}
+                {formError && <p className="mt-1.5 text-sm text-rose-700">{formError}</p>}
               </div>
 
-              {imagePreview && (
-                <div className="h-36 w-full rounded-2xl overflow-hidden bg-stone-100 border border-stone-200">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Título de la fotografía *
-                </label>
+              <label className="block">
+                <span className={labelClass}>Título</span>
                 <input
                   type="text"
                   required
-                  placeholder="Ej: Cisnes de cuello negro en el Espejo del Angachilla"
+                  placeholder="Cisnes en el Espejo del Angachilla"
                   value={newPinTitle}
                   onChange={e => setNewPinTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-stone-50 border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                  className={inputClass}
                 />
-              </div>
+              </label>
 
               {uploadAsOfficial && currentUser?.role === 'admin' ? (
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Estación Oficial Asociada *
-                  </label>
-                  <select
-                    value={newPinStationCode}
-                    onChange={e => setNewPinStationCode(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-stone-50 border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-                  >
-                    {stationFilters
-                      .filter(s => s.code !== 'todas')
-                      .map(s => (
-                        <option key={s.code} value={s.code}>
-                          {s.label}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Estación o Sendero visitado *
-                  </label>
-                  <select
-                    value={newPinPlace}
-                    onChange={e => setNewPinPlace(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-stone-50 border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-                  >
-                    {stations.map(poi => (
-                      <option key={poi.id} value={poi.name}>
-                        {poi.name}
+                <label className="block">
+                  <span className={labelClass}>Estación</span>
+                  <select value={newPinStationCode} onChange={e => setNewPinStationCode(e.target.value)} className={inputClass}>
+                    {stationList.map(s => (
+                      <option key={s.code} value={s.code}>
+                        {stationNumber(s.code!)} · {placeName(s.name)}
                       </option>
                     ))}
                   </select>
-                </div>
-              )}
-
-              {!uploadAsOfficial && (
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Categoría
-                  </label>
-                  <select
-                    value={newPinTag}
-                    onChange={e => setNewPinTag(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-stone-50 border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-                  >
-                    <option value="Aves">Aves y Fauna</option>
-                    <option value="Atardeceres">Paisajes y Espejos de Agua</option>
-                    <option value="Pasarelas">Pasarelas y Miradores</option>
-                    <option value="Bosque">Bosque y Flora Nativa</option>
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Descripción
                 </label>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label className="block">
+                    <span className={labelClass}>Lugar</span>
+                    <select value={newPinPlace} onChange={e => setNewPinPlace(e.target.value)} className={inputClass}>
+                      {stationList.map(poi => (
+                        <option key={poi.id} value={poi.name}>
+                          {placeName(poi.name)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className={labelClass}>Tema</span>
+                    <select value={newPinTag} onChange={e => setNewPinTag(e.target.value)} className={inputClass}>
+                      <option value="Aves">Aves y fauna</option>
+                      <option value="Atardeceres">Paisajes y espejos de agua</option>
+                      <option value="Pasarelas">Pasarelas y miradores</option>
+                      <option value="Bosque">Bosque y flora nativa</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+
+              <label className="block">
+                <span className={labelClass}>
+                  Descripción <span className="font-normal text-stone-500">(opcional)</span>
+                </span>
                 <textarea
-                  rows={2}
-                  placeholder="Comparte detalles de la estación o especie fotografiada..."
+                  rows={3}
+                  placeholder="Qué especie, a qué hora, cómo estaba el sendero…"
                   value={newPinDescription}
                   onChange={e => setNewPinDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-stone-50 border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                  className={`${inputClass} h-auto py-2`}
                 />
-              </div>
+              </label>
 
-              <div className="pt-3 border-t border-stone-200 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={handleClosePinModal}
-                  className="px-4 py-2 rounded-full bg-stone-100 text-stone-700 text-xs font-bold"
-                >
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={handleClosePinModal} className="h-11 px-4 rounded-md text-sm font-medium text-stone-700 hover:bg-stone-100">
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 rounded-full bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-md"
-                >
-                  Guardar Fotografía
+                <button type="submit" className="h-11 px-5 rounded-md bg-emerald-900 hover:bg-emerald-800 text-white text-sm font-semibold">
+                  Publicar fotografía
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   Compass,
   Users,
@@ -15,16 +15,14 @@ import { User, WetlandEvent } from '../types';
 import { ecosistemaApi, resolveMediaUrl } from '../lib/api';
 import { HUMEDAL_ROUTES } from '../data/mockData';
 import { dateKey, eventDateKey, formatEventDateShort } from '../lib/eventDates';
+import { AppDownloadBanner } from './AppDownloadBanner';
+import { GalleryItem, MobileLanding, SummaryItem } from './MobileLanding';
 
 interface LandingPageProps {
   currentUser: User | null;
   onEnterApp: (targetTab?: string) => void;
   onOpenAuth: () => void;
 }
-
-type GalleryItem =
-  | { kind: 'station'; title: string; code: string; note: string; image: string }
-  | { kind: 'species'; title: string; scientific: string; note: string; image: string };
 
 // Station photographs alternate with the official species illustrations
 const GALLERY: GalleryItem[] = [
@@ -44,6 +42,16 @@ const GALLERY: GalleryItem[] = [
 
 const TRAIL_KM = HUMEDAL_ROUTES.reduce((sum, r) => sum + r.distanceKm, 0);
 
+// Phones get their own welcome screen (MobileLanding); follows the viewport if it changes
+const PHONE_QUERY = '(max-width: 767px)';
+const subscribePhone = (onChange: () => void) => {
+  const mq = window.matchMedia(PHONE_QUERY);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+};
+const useIsPhone = () =>
+  useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
+
 interface Facts {
   stations: number;
   species: number;
@@ -59,6 +67,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const railRef = useRef<HTMLDivElement>(null);
   const [facts, setFacts] = useState<Facts | null>(null);
   const [railEdge, setRailEdge] = useState({ start: true, end: false });
+  const isPhone = useIsPhone();
 
   // Live figures for the summary panel
   useEffect(() => {
@@ -121,7 +130,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   const nextEvent = facts?.nextEvent ?? null;
-  const summary = [
+  const summary: SummaryItem[] = [
     {
       tab: 'mapa',
       figure: `${TRAIL_KM.toLocaleString('es-CL', { maximumFractionDigits: 1 })} km`,
@@ -160,6 +169,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           action: 'Ver el calendario',
         },
   ];
+
+  if (isPhone) {
+    return (
+      <MobileLanding currentUser={currentUser} onEnterApp={onEnterApp} onOpenAuth={onOpenAuth} summary={summary} gallery={GALLERY} />
+    );
+  }
 
   return (
     <div ref={rootRef} className="relative w-full min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-white">
@@ -244,7 +259,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight font-display leading-[1.15]">
           Reserva Comunitaria <br className="hidden sm:inline" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-200">
-            Humedales de Angachilla
+            Bosque Humedal Angachilla
           </span>
         </h2>
 
@@ -403,6 +418,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </p>
         </div>
       </footer>
+
+      <AppDownloadBanner />
     </div>
   );
 };

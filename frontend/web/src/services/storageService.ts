@@ -142,7 +142,8 @@ class StorageService {
           comments: p.comments ?? [],
         }));
 
-        this.communityPhotos = feedItems.map((p: any) => ({
+        // Only photo pins belong in the gallery; text posts stay in the Feed
+        this.communityPhotos = feedItems.filter((p: { type?: string }) => p.type !== 'post').map((p: any) => ({
           id: p.id,
           title: p.title,
           visitedPlace: p.visitedPlace || 'Reserva Comunitaria Bosque Humedal Angachilla',

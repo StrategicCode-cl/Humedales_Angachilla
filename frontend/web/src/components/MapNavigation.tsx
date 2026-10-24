@@ -29,11 +29,14 @@ import {
   Route as RouteIcon,
   CheckCircle2,
 } from 'lucide-react';
-import { HumedalRoute, Notice, PointOfInterest, Species, WazeLiveAlert, WetlandEvent } from '../types';
+import { HumedalRoute, MapPoint, Notice, PointOfInterest, Species, WazeLiveAlert, WetlandEvent } from '../types';
 import { HUMEDAL_ROUTES, resolveRouteId } from '../data/mockData';
 import { soundService } from '../services/soundService';
 import { storageService } from '../services/storageService';
-import { resolveMediaUrl } from '../lib/api';
+import { mapPointsApi, resolveMediaUrl } from '../lib/api';
+import { MAP_POINT_TYPES, iconFor, mapPointMarkerHtml } from '../lib/mapPointIcons';
+import Link from 'next/link';
+import { pathForTab } from '../lib/tabs';
 import {
   RouteTrack,
   buildTrack,
@@ -204,6 +207,9 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
 
   // Selected Station for the Bottom Sheet + Selected Species inside the Station Sheet
   const [selectedPOI, setSelectedPOI] = useState<PointOfInterest | null>(null);
+  // Points the guardaparques added (miradores, activities, services); published ones only
+  const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
+  const [selectedMapPoint, setSelectedMapPoint] = useState<MapPoint | null>(null);
   const [selectedStationSpecies, setSelectedStationSpecies] = useState<Species | null>(null);
   const [zoomedStationPhoto, setZoomedStationPhoto] = useState<string | null>(null);
 
@@ -232,6 +238,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
   const checkpointsLayerRef = useRef<L.LayerGroup | null>(null);
   const poisLayerRef = useRef<L.LayerGroup | null>(null);
   const alertsLayerRef = useRef<L.LayerGroup | null>(null);
+  const mapPointsLayerRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const rendererRef = useRef<L.Canvas | null>(null);
   const selectRouteRef = useRef<(id: string) => void>(() => {});
@@ -317,6 +324,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
     });
 
     checkpointsLayerRef.current = L.layerGroup().addTo(map);
+    mapPointsLayerRef.current = L.layerGroup().addTo(map);
     poisLayerRef.current = L.layerGroup().addTo(map);
     alertsLayerRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
@@ -418,6 +426,7 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
       L.marker(poi.coordinates, { icon, title: poi.name })
         .bindTooltip(poi.name, { direction: 'top', offset: [0, -16] })
         .on('click', () => {
+          setSelectedMapPoint(null);
           setSelectedPOI(poi);
           setActiveStationPhotoIdx(0);
           setSheetState('expanded');
@@ -427,6 +436,34 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
         .addTo(poisLayer);
     });
   }, [stations, selectedPOI]);
+
+  useEffect(() => {
+    mapPointsApi
+      .list()
+      .then(setMapPoints)
+      .catch(() => {});
+  }, []);
+
+  // Points added from the guardaparques panel
+  useEffect(() => {
+    const layer = mapPointsLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    mapPoints.forEach(point => {
+      const isSelected = selectedMapPoint?.id === point.id;
+      L.marker(point.coordinates, {
+        title: point.name,
+        icon: L.divIcon({ className: '', html: mapPointMarkerHtml(point, isSelected), iconSize: [34, 34], iconAnchor: [17, 17] }),
+        zIndexOffset: isSelected ? 800 : 0,
+      })
+        .bindTooltip(point.name, { direction: 'top', offset: [0, -16] })
+        .on('click', () => {
+          setSelectedMapPoint(point);
+          mapInstanceRef.current?.panTo(point.coordinates);
+        })
+        .addTo(layer);
+    });
+  }, [mapPoints, selectedMapPoint]);
 
   // Community alerts
   useEffect(() => {
@@ -809,6 +846,56 @@ export const MapNavigation: React.FC<MapNavigationProps> = ({
           <span className="hidden sm:inline">Reportar</span>
         </button>
       </div>
+
+      {/* Card for a point added by the guardaparques */}
+      {selectedMapPoint && (
+        <div
+          role="dialog"
+          aria-labelledby="map-point-title"
+          className="absolute z-40 top-16 left-3 right-16 sm:left-auto sm:right-3 sm:top-40 sm:w-80 max-h-[calc(100%-9rem)] overflow-y-auto rounded-lg bg-white text-stone-900 shadow-2xl"
+        >
+          {selectedMapPoint.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={selectedMapPoint.image} alt="" className="w-full aspect-[16/9] object-cover bg-stone-200" />
+          )}
+          <div className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium" style={{ color: MAP_POINT_TYPES[selectedMapPoint.type].color }}>
+                  {MAP_POINT_TYPES[selectedMapPoint.type].label} · {iconFor(selectedMapPoint.icon).label}
+                </p>
+                <h3 id="map-point-title" className="mt-0.5 text-base font-semibold leading-snug text-stone-950">
+                  {selectedMapPoint.name}
+                </h3>
+                <p className="text-[13px] text-stone-600">{selectedMapPoint.routeName ?? 'Fuera de las rutas señalizadas'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMapPoint(null)}
+                aria-label="Cerrar"
+                className="w-9 h-9 -mr-1.5 -mt-1 rounded-md flex items-center justify-center text-stone-500 hover:bg-stone-100 hover:text-stone-900 shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {selectedMapPoint.description && (
+              <p className="mt-2 text-sm leading-relaxed text-stone-700 line-clamp-4">{selectedMapPoint.description}</p>
+            )}
+            {selectedMapPoint.eventId && selectedMapPoint.eventTitle && (
+              <Link
+                href={pathForTab('eventos')}
+                className="mt-3 flex items-center justify-between gap-2 rounded-md bg-stone-100 hover:bg-stone-200 px-3 py-2.5 text-sm transition-colors"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[13px] text-stone-600">Actividad en este lugar</span>
+                  <span className="block font-semibold text-stone-950 truncate">{selectedMapPoint.eventTitle}</span>
+                </span>
+                <span className="shrink-0 font-semibold text-stone-950 underline underline-offset-2">Ver</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* GPS Status Toast */}
       {gpsStatusText && (

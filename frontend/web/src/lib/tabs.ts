@@ -9,6 +9,10 @@ export const TAB_PATHS = {
   sugerencias: '/buzon',
   admin: '/admin',
   perfil: '/perfil',
+  donar: '/donar',
+  ingresar: '/ingresar',
+  registro: '/registro',
+  'restablecer-clave': '/restablecer-clave',
 } as const;
 
 export type TabId = keyof typeof TAB_PATHS;

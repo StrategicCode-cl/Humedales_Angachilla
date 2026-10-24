@@ -3,6 +3,8 @@ export type UserRole = 'visitante' | 'admin';
 export interface User {
   id: string;
   name: string;
+  lastName?: string;
+  username: string;
   email: string;
   role: UserRole;
   avatar?: string;
@@ -11,9 +13,11 @@ export interface User {
 
 export type SpeciesCategory =
   | 'ave_acuatica'
+  | 'ave_totoral'
   | 'ave_bosque'
   | 'mamifero'
   | 'anfibio'
+  | 'reptil'
   | 'arbol_arbusto'
   | 'planta_acuatica'
   | 'hongo';
@@ -342,4 +346,23 @@ export interface ModerationTicket {
   adminFeedback?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+}
+
+// Pin added by the guardaparques on the map, apart from the QR totems
+export type MapPointType = 'vista' | 'actividad';
+
+export interface MapPoint {
+  id: string;
+  name: string;
+  type: MapPointType;
+  icon: string;
+  description: string;
+  coordinates: [number, number];
+  routeId: string | null;
+  routeName: string | null;
+  eventId: string | null;
+  eventTitle: string | null;
+  image: string | null;
+  published: boolean;
+  updatedAt?: string;
 }

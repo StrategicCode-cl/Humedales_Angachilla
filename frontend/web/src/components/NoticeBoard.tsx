@@ -340,7 +340,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
       {subSection === 'acerca' && (
         <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6 animate-in fade-in duration-200">
           <SanctuaryHistorySection
-            initialSubTab="reserva"
+            initialSubTab="app"
             onOpenDonations={onOpenDonations}
           />
         </div>

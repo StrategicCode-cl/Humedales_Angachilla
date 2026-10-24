@@ -8,15 +8,15 @@ import { storageService } from '../services/storageService';
 
 interface SanctuaryHistorySectionProps {
   onOpenDonations?: () => void;
-  initialSubTab?: 'reserva' | 'comite' | 'app';
+  initialSubTab?: 'app' | 'reserva' | 'comite';
 }
 
-type SubTab = 'reserva' | 'comite' | 'app';
+type SubTab = 'app' | 'reserva' | 'comite';
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
+  { id: 'app', label: 'Angachilla App' },
   { id: 'reserva', label: 'La reserva' },
   { id: 'comite', label: 'Comité Ecológico' },
-  { id: 'app', label: 'Angachilla App' },
 ];
 
 const inputClass =
@@ -27,7 +27,7 @@ const media = (slug: string) => `${API_URL}/api/media/slug/${slug}`;
 
 export const SanctuaryHistorySection: React.FC<SanctuaryHistorySectionProps> = ({
   onOpenDonations,
-  initialSubTab = 'reserva',
+  initialSubTab = 'app',
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(initialSubTab);
   const [expandedWorkLine, setExpandedWorkLine] = useState<number | null>(1);
