@@ -94,3 +94,11 @@
   from { transform: scaleX(1); }
   to { transform: scaleX(0); }
 }
+
+/* Horizontal rows that scroll by swipe without showing a scrollbar */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

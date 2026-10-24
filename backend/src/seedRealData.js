@@ -361,9 +361,10 @@ export async function seedRealData() {
         codigo_qr = EXCLUDED.codigo_qr,
         sound_key = EXCLUDED.sound_key,
         sendero_id = EXCLUDED.sendero_id,
-        ubicacion = EXCLUDED.ubicacion,
-        lat = EXCLUDED.lat,
-        lng = EXCLUDED.lng,
+        -- Una ubicación corregida desde el panel del guardaparques se conserva
+        ubicacion = CASE WHEN estacion.ubicacion_editada THEN estacion.ubicacion ELSE EXCLUDED.ubicacion END,
+        lat = CASE WHEN estacion.ubicacion_editada THEN estacion.lat ELSE EXCLUDED.lat END,
+        lng = CASE WHEN estacion.ubicacion_editada THEN estacion.lng ELSE EXCLUDED.lng END,
         orden = EXCLUDED.orden,
         imagen_principal_id = COALESCE(EXCLUDED.imagen_principal_id, estacion.imagen_principal_id)
       RETURNING id`,

@@ -11,6 +11,7 @@ import { usuariosRouter } from "./routes/usuarios.js";
 import { mediaRouter } from "./routes/media.js";
 import { ecosistemaRouter } from "./routes/ecosistema.js";
 import { feedRouter } from "./routes/feed.js";
+import { puntosMapaRouter } from "./routes/puntosMapa.js";
 
 const PORT = process.env.PORT ?? 4000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:3000";
@@ -31,6 +32,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/usuarios", usuariosRouter);
 app.use("/api/media", mediaRouter);
 app.use("/api/feed", feedRouter);
+app.use("/api", puntosMapaRouter);
 app.use("/api", ecosistemaRouter);
 
 app.use((err, _req, res, _next) => {

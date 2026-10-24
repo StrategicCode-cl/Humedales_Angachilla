@@ -1,21 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BookOpen,
-  Bell,
-  Calendar,
   Camera,
   Compass,
-  FileText,
-  Heart,
   Home,
-  Lightbulb,
-  QrCode,
-  Smartphone,
-  X
+  Smartphone
 } from 'lucide-react';
 import { User, Notice } from '../types';
 import { authApi, resolveMediaUrl } from '../lib/api';
@@ -26,6 +19,7 @@ import { QRScannerModal } from './QRScannerModal';
 import { AuthModal } from './AuthModal';
 import { InfographicsModal } from './InfographicsModal';
 import { OfflineIndicator } from './OfflineIndicator';
+import { CreateMenu, CreateMenuAnchor } from './CreateMenu';
 
 import { LandingPage } from './LandingPage';
 
@@ -86,6 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [isQROpen, setIsQROpen] = useState(false);
   const [isPostersOpen, setIsPostersOpen] = useState(false);
   const [isCreateMiniPanelOpen, setIsCreateMiniPanelOpen] = useState(false);
+  const [createAnchor, setCreateAnchor] = useState<CreateMenuAnchor | null>(null);
   const [isCreatePinTriggered, setIsCreatePinTriggered] = useState(false);
   const [isCreateNoticeTriggered, setIsCreateNoticeTriggered] = useState(false);
   const [createNoticeCategory, setCreateNoticeCategory] = useState<Notice['category']>('comunidad');
@@ -101,6 +96,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setCurrentTab = (tab: string) => router.push(pathForTab(tab));
+
+  // The "Crear" menu opens beside the button that asked for it (sidebar or top bar) on large screens
+  const toggleCreateMenu = (from: 'sidebar' | 'navbar') => (rect?: DOMRect) => {
+    if (isCreateMiniPanelOpen) {
+      setIsCreateMiniPanelOpen(false);
+      return;
+    }
+    if (rect) {
+      const MENU_HEIGHT = 470;
+      setCreateAnchor(
+        from === 'sidebar'
+          ? { top: Math.max(16, Math.min(rect.top, window.innerHeight - MENU_HEIGHT - 16)), left: 92 }
+          : { top: rect.bottom + 8, right: Math.max(16, window.innerWidth - rect.right) }
+      );
+    }
+    setIsCreateMiniPanelOpen(true);
+  };
+  const closeCreateMenu = useCallback(() => setIsCreateMiniPanelOpen(false), []);
 
   const handleOpenQRWithCode = (code: string) => {
     setPreselectedQRCode(code);
@@ -196,7 +209,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onOpenPosters={() => setIsPostersOpen(true)}
           onOpenDonations={() => setCurrentTab('donar')}
           onLogout={handleLogout}
-          onOpenCreateSheet={() => setIsCreateMiniPanelOpen(prev => !prev)}
+          onOpenCreateSheet={toggleCreateMenu('navbar')}
           isCreatePanelOpen={isCreateMiniPanelOpen}
         />
 
@@ -212,7 +225,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onOpenPosters={() => setIsPostersOpen(true)}
           onOpenDonations={() => setCurrentTab('donar')}
           onLogout={handleLogout}
-          onOpenCreateSheet={() => setIsCreateMiniPanelOpen(prev => !prev)}
+          onOpenCreateSheet={toggleCreateMenu('sidebar')}
           isCreatePanelOpen={isCreateMiniPanelOpen}
         />
 
@@ -286,102 +299,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* --- MINIMALIST FLOATING ACTION PANEL OVER SCREEN --- */}
       {isCreateMiniPanelOpen && (
-        <>
-          <div
-            id="mini-panel-backdrop"
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-150"
-            onClick={() => setIsCreateMiniPanelOpen(false)}
-          />
-
-          <div
-            id="mini-actions-panel"
-            className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-48 lg:left-24 lg:translate-x-0 w-[90%] max-w-xs z-50 bg-stone-900/95 text-white backdrop-blur-xl rounded-3xl p-3.5 shadow-2xl border border-white/10 animate-in zoom-in-95 fade-in slide-in-from-bottom-3 duration-150 select-none"
-          >
-            <div className="flex items-center justify-between pb-1.5 mb-1 px-1">
-              <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400">
-                Acciones Rápidas
-              </span>
-              <button
-                onClick={() => setIsCreateMiniPanelOpen(false)}
-                className="w-5 h-5 rounded-full hover:bg-white/10 text-stone-400 hover:text-white flex items-center justify-center transition-colors"
-                title="Cerrar"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-y-3 gap-x-1 py-1">
-              <MiniPanelButton
-                id="mini-btn-pin"
-                icon={<Camera className="w-7 h-7 text-rose-400 group-hover:scale-110 transition-transform" />}
-                label="Subir Foto"
-                onClick={() => {
-                  setIsCreateMiniPanelOpen(false);
-                  setIsCreatePinTriggered(true);
-                  setCurrentTab('galeria');
-                }}
-              />
-              <MiniPanelButton
-                id="mini-btn-qr"
-                icon={<QrCode className="w-7 h-7 text-purple-400 group-hover:scale-110 transition-transform" />}
-                label="Escanear QR"
-                onClick={() => {
-                  setIsCreateMiniPanelOpen(false);
-                  setPreselectedQRCode(null);
-                  setIsQROpen(true);
-                }}
-              />
-              <MiniPanelButton
-                id="mini-btn-notice"
-                icon={<Bell className="w-7 h-7 text-emerald-400 group-hover:scale-110 transition-transform" />}
-                label="Publicar Post"
-                onClick={() => {
-                  setIsCreateMiniPanelOpen(false);
-                  setCreateNoticeCategory('comunidad');
-                  setIsCreateNoticeTriggered(true);
-                  setCurrentTab('avisos');
-                }}
-              />
-              <MiniPanelButton
-                id="mini-btn-events"
-                icon={<Calendar className="w-7 h-7 text-teal-400 group-hover:scale-110 transition-transform" />}
-                label="Calendario"
-                onClick={() => {
-                  setIsCreateMiniPanelOpen(false);
-                  setCurrentTab('eventos');
-                }}
-              />
-              <MiniPanelButton
-                id="mini-btn-suggestion"
-                icon={<Lightbulb className="w-7 h-7 text-amber-400 group-hover:scale-110 transition-transform" />}
-                label="Buzón"
-                onClick={() => {
-                  setIsCreateMiniPanelOpen(false);
-                  setCurrentTab('sugerencias');
-                }}
-              />
-              <MiniPanelButton
-                id="mini-btn-posters"
-                icon={<FileText className="w-7 h-7 text-sky-400 group-hover:scale-110 transition-transform" />}
-                label="Decálogo"
-                onClick={() => {
-                  setIsCreateMiniPanelOpen(false);
-                  setIsPostersOpen(true);
-                }}
-              />
-              <MiniPanelButton
-                id="mini-btn-donations"
-                className="col-span-3"
-                icon={<Heart className="w-7 h-7 text-rose-400 fill-rose-500/30 group-hover:scale-110 transition-transform" />}
-                label="Donar Aporte al Santuario"
-                onClick={() => {
-                  setIsCreateMiniPanelOpen(false);
-                  setCurrentTab('donar');
-                }}
-              />
-            </div>
-          </div>
-        </>
+        <CreateMenu
+          anchor={createAnchor}
+          onClose={closeCreateMenu}
+          onUploadPhoto={() => {
+            setIsCreatePinTriggered(true);
+            setCurrentTab('galeria');
+          }}
+          onPublishPost={() => {
+            setCreateNoticeCategory('comunidad');
+            setIsCreateNoticeTriggered(true);
+            setCurrentTab('avisos');
+          }}
+          onSuggestion={() => setCurrentTab('sugerencias')}
+          onScanQR={() => {
+            setPreselectedQRCode(null);
+            setIsQROpen(true);
+          }}
+          onCalendar={() => setCurrentTab('eventos')}
+          onRules={() => setIsPostersOpen(true)}
+          onDonate={() => setCurrentTab('donar')}
+        />
       )}
 
       {/* --- GLOBAL MODALS --- */}
@@ -413,30 +351,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MiniPanelButton({
-  id,
-  icon,
-  label,
-  onClick,
-  className = ''
-}: {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      id={id}
-      onClick={onClick}
-      className={`flex flex-col items-center justify-center p-2 rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-white group ${className}`}
-      title={label}
-    >
-      {icon}
-      <span className="text-[11px] font-semibold text-stone-200 mt-1">
-        {label}
-      </span>
-    </button>
-  );
-}

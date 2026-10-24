@@ -1,4 +1,5 @@
 import type {
+  MapPoint,
   User,
   PointOfInterest,
   Species,
@@ -269,4 +270,40 @@ export const feedApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then(r => r.alert),
+};
+
+export interface MapPointInput {
+  name: string;
+  type: MapPoint['type'];
+  icon: string;
+  description: string;
+  coordinates?: [number, number];
+  routeId: string | null;
+  eventId: string | null;
+  /** data URL for a new photo, null to remove it, undefined to keep it */
+  image?: string | null;
+  published: boolean;
+}
+
+const withMedia = (p: MapPoint): MapPoint => ({ ...p, image: p.image ? resolveMediaUrl(p.image) : null });
+
+export const mapPointsApi = {
+  /** all=true includes drafts (guardaparques only) */
+  list: (all = false) =>
+    apiFetch<{ points: MapPoint[] }>(`/api/puntos-mapa${all ? '?todos=1' : ''}`).then(r => r.points.map(withMedia)),
+  create: (data: MapPointInput) =>
+    apiFetch<{ point: MapPoint }>('/api/puntos-mapa', { method: 'POST', body: JSON.stringify(data) }).then(r => withMedia(r.point)),
+  update: (id: string, data: MapPointInput) =>
+    apiFetch<{ point: MapPoint }>(`/api/puntos-mapa/${id}`, { method: 'PUT', body: JSON.stringify(data) }).then(r => withMedia(r.point)),
+  move: (id: string, coordinates: [number, number]) =>
+    apiFetch<{ point: MapPoint }>(`/api/puntos-mapa/${id}/ubicacion`, { method: 'PATCH', body: JSON.stringify({ coordinates }) }).then(r =>
+      withMedia(r.point)
+    ),
+  remove: (id: string) => apiFetch<void>(`/api/puntos-mapa/${id}`, { method: 'DELETE' }),
+  /** Corrects a QR totem's location; it is then kept across backend restarts */
+  moveStation: (id: string, coordinates: [number, number]) =>
+    apiFetch<{ ok: true; coordinates: [number, number] }>(`/api/estaciones/${id}/ubicacion`, {
+      method: 'PATCH',
+      body: JSON.stringify({ coordinates }),
+    }),
 };

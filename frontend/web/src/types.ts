@@ -347,3 +347,22 @@ export interface ModerationTicket {
   reviewedBy?: string;
   reviewedAt?: string;
 }
+
+// Pin added by the guardaparques on the map, apart from the QR totems
+export type MapPointType = 'vista' | 'actividad';
+
+export interface MapPoint {
+  id: string;
+  name: string;
+  type: MapPointType;
+  icon: string;
+  description: string;
+  coordinates: [number, number];
+  routeId: string | null;
+  routeName: string | null;
+  eventId: string | null;
+  eventTitle: string | null;
+  image: string | null;
+  published: boolean;
+  updatedAt?: string;
+}

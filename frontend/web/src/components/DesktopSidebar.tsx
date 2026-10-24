@@ -38,19 +38,23 @@ interface DesktopSidebarProps {
   onOpenPosters: () => void;
   onOpenDonations: () => void;
   onLogout: () => void;
-  onOpenCreateSheet: () => void;
+  onOpenCreateSheet: (anchor?: DOMRect) => void;
   isCreatePanelOpen: boolean;
 }
 
 const navItems = [
-  { id: 'avisos', label: 'Feed & Avisos', icon: Home },
-  { id: 'galeria', label: 'Galería de Fotos', icon: Camera },
-  { id: 'mapa', label: 'Recorrer Mapa', icon: Compass },
-  { id: 'catalogo', label: 'Guía de Especies', icon: BookOpen },
-  { id: 'apps', label: 'Apps Complementarias', icon: Smartphone },
+  { id: 'avisos', label: 'Inicio', icon: Home },
+  { id: 'galeria', label: 'Galería', icon: Camera },
+  { id: 'mapa', label: 'Mapa y senderos', icon: Compass },
+  { id: 'catalogo', label: 'Guía de especies', icon: BookOpen },
   { id: 'eventos', label: 'Calendario', icon: Calendar },
-  { id: 'sugerencias', label: 'Buzón Ciudadano', icon: MessageSquarePlus },
+  { id: 'apps', label: 'Apps complementarias', icon: Smartphone },
+  { id: 'sugerencias', label: 'Buzón ciudadano', icon: MessageSquarePlus },
 ];
+
+// Text that appears only while the rail is open (hover or keyboard focus inside it)
+const reveal =
+  'opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-300 whitespace-nowrap';
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   currentTab,
@@ -71,146 +75,138 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     soundService.toggleAmbient(playing => setIsAmbientPlaying(playing));
   };
 
+  const navLink = (id: string, label: string, Icon: typeof Home) => {
+    const isActive = currentTab === id;
+    return (
+      <Link
+        key={id}
+        href={pathForTab(id)}
+        aria-current={isActive ? 'page' : undefined}
+        title={label}
+        className={`flex items-center gap-3 h-10 px-[14px] rounded-md text-sm transition-colors ${
+          isActive ? 'bg-stone-200/80 text-stone-950 font-semibold' : 'text-stone-600 font-medium hover:bg-stone-100 hover:text-stone-950'
+        }`}
+      >
+        <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-stone-950' : 'text-stone-500'}`} strokeWidth={isActive ? 2.2 : 1.8} />
+        <span className={reveal}>{label}</span>
+      </Link>
+    );
+  };
+
   return (
-    <aside className="group/sidebar hidden lg:flex fixed inset-y-0 left-0 z-50 w-20 hover:w-64 focus-within:w-64 flex-col overflow-hidden bg-white border-r border-stone-200/90 hover:shadow-2xl focus-within:shadow-2xl transition-[width,box-shadow] duration-500 ease-in-out select-none">
+    <aside className="group/sidebar hidden lg:flex fixed inset-y-0 left-0 z-50 w-20 hover:w-64 focus-within:w-64 flex-col overflow-hidden bg-white border-r border-stone-200 hover:shadow-xl focus-within:shadow-xl transition-[width,box-shadow] duration-300 ease-out select-none">
       {/* Brand */}
-      <Link href={pathForTab('avisos')} className="flex items-center gap-3 px-5 h-20 group shrink-0">
-        <div className="w-10 h-10 shrink-0 rounded-[23%] ring-1 ring-stone-200 group-hover:ring-stone-300 transition-shadow">
-          <AngachillaIcon title="Angachilla App" className="w-full h-full" />
+      <Link href={pathForTab('avisos')} className="flex items-center gap-3 px-5 h-20 shrink-0" aria-label="Angachilla App, inicio">
+        <div className="w-10 h-10 shrink-0 rounded-[23%] ring-1 ring-stone-200">
+          <AngachillaIcon className="w-full h-full" />
         </div>
-        <div className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">
-          <img
-            src={resolveMediaUrl('/api/media/slug/svg-letras-angachilla-app')}
-            alt="Angachilla App"
-            className="h-5 w-auto object-contain"
-          />
-          <span className="block text-[10px] text-stone-400 font-semibold tracking-wide mt-1">
-            Reserva Comunitaria · Valdivia
-          </span>
+        <div className={reveal}>
+          <img src={resolveMediaUrl('/api/media/slug/svg-letras-angachilla-app')} alt="" className="h-5 w-auto object-contain" />
+          <span className="mt-1 block text-[13px] text-stone-500">Reserva Comunitaria · Valdivia</span>
         </div>
       </Link>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 space-y-6">
-        {/* Main navigation */}
-        <nav className="space-y-0.5">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
-              <Link
-                key={item.id}
-                href={pathForTab(item.id)}
-                className={`flex items-center gap-3 px-[15px] py-2.5 rounded-xl text-sm transition-colors ${
-                  isActive
-                    ? 'bg-stone-900 text-white font-bold'
-                    : 'text-stone-600 font-semibold hover:bg-stone-100 hover:text-stone-900'
-                }`}
-              >
-                <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.9]'}`} />
-                <span className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">{item.label}</span>
-              </Link>
-            );
-          })}
-          {currentUser?.role === 'admin' && (
-            <Link
-              href={pathForTab('admin')}
-              className={`flex items-center gap-3 px-[15px] py-2.5 rounded-xl text-sm transition-colors ${
-                currentTab === 'admin'
-                  ? 'bg-emerald-800 text-white font-bold'
-                  : 'text-emerald-800 font-semibold hover:bg-emerald-50'
-              }`}
-            >
-              <ShieldCheck className="w-[18px] h-[18px] shrink-0" />
-              <span className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">Panel Guardaparques</span>
-            </Link>
-          )}
-        </nav>
-
-        {/* Primary action */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-[18px] pb-4">
+        {/* Main action */}
         <button
           id="sidebar-create-button"
-          onClick={onOpenCreateSheet}
-          className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all active:scale-[0.98] ${
-            isCreatePanelOpen
-              ? 'bg-stone-900 shadow-stone-950/20'
-              : 'bg-gradient-to-tr from-emerald-700 via-emerald-600 to-teal-500 hover:brightness-110 shadow-emerald-900/20'
+          type="button"
+          onClick={e => onOpenCreateSheet(e.currentTarget.getBoundingClientRect())}
+          aria-expanded={isCreatePanelOpen}
+          aria-haspopup="dialog"
+          title="Crear"
+          className={`w-full flex items-center gap-3 h-11 px-[12px] rounded-md text-sm font-semibold text-white transition-colors active:scale-[0.98] ${
+            isCreatePanelOpen ? 'bg-stone-900' : 'bg-emerald-900 hover:bg-emerald-800'
           }`}
         >
-          <Plus className={`w-4 h-4 shrink-0 stroke-[2.5] transition-transform duration-200 ${isCreatePanelOpen ? 'rotate-45' : ''}`} />
-          <span className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">Publicar / Crear</span>
+          <Plus className={`w-5 h-5 shrink-0 transition-transform duration-200 ${isCreatePanelOpen ? 'rotate-45' : ''}`} strokeWidth={2.4} />
+          <span className={reveal}>Crear</span>
         </button>
 
-        {/* Tools */}
-        <div>
-          <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-400 opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">
-            Herramientas
-          </p>
+        {/* Main navigation */}
+        <nav aria-label="Secciones" className="mt-4 space-y-0.5 -mx-0.5">
+          {navItems.map(item => navLink(item.id, item.label, item.icon))}
+          {currentUser?.role === 'admin' && navLink('admin', 'Panel del guardaparques', ShieldCheck)}
+        </nav>
+
+        {/* Visit tools */}
+        <div className="mt-5 pt-4 border-t border-stone-200 -mx-0.5">
+          <p className={`px-[14px] pb-1 text-[13px] text-stone-500 ${reveal}`}>Para tu visita</p>
           <div className="space-y-0.5">
-            <SidebarTool icon={<Sparkles className="w-4 h-4 text-emerald-600" />} label="Portada / Bienvenida" onClick={openLanding} />
-            <SidebarTool icon={<QrCode className="w-4 h-4" />} label="Escanear tótem QR" onClick={onOpenQR} />
-            <SidebarTool icon={<FileText className="w-4 h-4" />} label="Decálogo y normas" onClick={onOpenPosters} />
+            <SidebarTool icon={QrCode} label="Escanear tótem QR" onClick={onOpenQR} />
+            <SidebarTool icon={FileText} label="Decálogo y normas" onClick={onOpenPosters} />
             <SidebarTool
-              icon={isAmbientPlaying ? <Volume2 className="w-4 h-4 text-emerald-700" /> : <VolumeX className="w-4 h-4" />}
-              label={isAmbientPlaying ? 'Sonido ambiente activo' : 'Sonido ambiente'}
+              icon={isAmbientPlaying ? Volume2 : VolumeX}
+              label={isAmbientPlaying ? 'Sonido ambiente: activo' : 'Sonido ambiente'}
               onClick={handleToggleAmbient}
               active={isAmbientPlaying}
             />
-            {isInstallable && (
-              <SidebarTool icon={<Download className="w-4 h-4" />} label="Instalar como app" onClick={install} />
-            )}
+            <SidebarTool icon={Sparkles} label="Ver la portada" onClick={openLanding} />
+            {isInstallable && <SidebarTool icon={Download} label="Instalar como app" onClick={install} />}
           </div>
         </div>
       </div>
 
-      {/* Footer: donation + account */}
-      <div className="shrink-0 border-t border-stone-200/90 p-3 space-y-2">
+      {/* Footer: support + account */}
+      <div className="shrink-0 border-t border-stone-200 px-[18px] py-3 space-y-1">
         <button
           id="sidebar-donate-button"
+          type="button"
           onClick={onOpenDonations}
-          className="w-full flex items-center gap-2 px-[15px] py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors"
+          title="Donar a la reserva"
+          className="w-full flex items-center gap-3 h-10 px-[12px] rounded-md text-sm font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
         >
-          <Heart className="w-3.5 h-3.5 shrink-0 fill-rose-600 text-rose-600" />
-          <span className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">Apoyar al santuario</span>
+          <Heart className="w-5 h-5 shrink-0 text-rose-600" strokeWidth={1.8} />
+          <span className={reveal}>Donar a la reserva</span>
         </button>
 
-        <div className="flex items-center gap-1 px-1 py-1.5">
+        <div className="flex items-center gap-1">
           <Link
             href={pathForTab('perfil')}
             aria-current={currentTab === 'perfil' ? 'page' : undefined}
-            title="Ver tu perfil"
-            className={`min-w-0 flex-1 flex items-center gap-3 rounded-lg p-0.5 -m-0.5 transition-colors ${
-              currentTab === 'perfil' ? 'bg-stone-100' : 'hover:bg-stone-50'
+            title="Tu perfil"
+            className={`min-w-0 flex-1 flex items-center gap-3 rounded-md p-1.5 transition-colors ${
+              currentTab === 'perfil' ? 'bg-stone-200/80' : 'hover:bg-stone-100'
             }`}
           >
-            <div className="w-9 h-9 rounded-full bg-emerald-800 text-white flex items-center justify-center text-sm font-bold overflow-hidden shrink-0">
+            <span className="w-8 h-8 rounded-full bg-stone-800 text-white flex items-center justify-center text-sm font-semibold overflow-hidden shrink-0">
               {currentUser?.avatar ? (
-                <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={currentUser.avatar} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span>{currentUser ? currentUser.name[0] : 'V'}</span>
+                (currentUser?.name[0] ?? 'V').toUpperCase()
               )}
-            </div>
-            <div className="min-w-0 flex-1 opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">
-              <p className="text-xs font-bold text-stone-900 truncate">
-                {currentUser ? currentUser.name : 'Visitante'}
-              </p>
-              <p className="text-[11px] text-stone-500 truncate">
-                {currentUser?.role === 'admin' ? 'Guardaparques' : currentUser ? currentUser.email : 'Sin sesión iniciada'}
-              </p>
-            </div>
+            </span>
+            <span className={`min-w-0 flex-1 ${reveal}`}>
+              <span className="block text-sm font-semibold text-stone-950 truncate">{currentUser ? currentUser.name : 'Visitante'}</span>
+              <span className="block text-[13px] text-stone-600 truncate">
+                {currentUser?.role === 'admin'
+                  ? 'Guardaparques'
+                  : currentUser?.username
+                  ? `@${currentUser.username}`
+                  : currentUser
+                  ? currentUser.email
+                  : 'Sin sesión iniciada'}
+              </span>
+            </span>
           </Link>
           {currentUser ? (
             <button
+              type="button"
               onClick={onLogout}
-              className="p-2 rounded-lg text-stone-400 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+              aria-label="Cerrar sesión"
               title="Cerrar sesión"
+              className={`w-9 h-9 rounded-md flex items-center justify-center text-stone-500 hover:text-stone-950 hover:bg-stone-100 transition-colors shrink-0 ${reveal}`}
             >
               <LogOut className="w-4 h-4" />
             </button>
           ) : (
             <button
+              type="button"
               onClick={onOpenAuth}
-              className="p-2 rounded-lg text-emerald-800 hover:bg-emerald-50 transition-colors"
-              title="Iniciar sesión / Registrarse"
+              aria-label="Iniciar sesión"
+              title="Iniciar sesión"
+              className={`w-9 h-9 rounded-md flex items-center justify-center text-stone-500 hover:text-stone-950 hover:bg-stone-100 transition-colors shrink-0 ${reveal}`}
             >
               <LogIn className="w-4 h-4" />
             </button>
@@ -222,25 +218,28 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 };
 
 function SidebarTool({
-  icon,
+  icon: Icon,
   label,
   onClick,
   active = false
 }: {
-  icon: React.ReactNode;
+  icon: typeof Home;
   label: string;
   onClick: () => void;
   active?: boolean;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors ${
-        active ? 'bg-emerald-50 text-emerald-800' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+      aria-pressed={active || undefined}
+      title={label}
+      className={`w-full flex items-center gap-3 h-10 px-[14px] rounded-md text-sm transition-colors ${
+        active ? 'bg-stone-200/80 text-stone-950 font-semibold' : 'text-stone-600 font-medium hover:bg-stone-100 hover:text-stone-950'
       }`}
     >
-      <span className="text-emerald-700 shrink-0">{icon}</span>
-      <span className="opacity-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 transition-opacity duration-500 whitespace-nowrap">{label}</span>
+      <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-stone-950' : 'text-stone-500'}`} strokeWidth={1.8} />
+      <span className={reveal}>{label}</span>
     </button>
   );
 }

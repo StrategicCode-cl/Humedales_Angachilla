@@ -34,7 +34,7 @@ interface NavbarProps {
   onOpenPosters: () => void;
   onOpenDonations?: () => void;
   onLogout: () => void;
-  onOpenCreateSheet: () => void;
+  onOpenCreateSheet: (anchor?: DOMRect) => void;
   isCreatePanelOpen?: boolean;
 }
 
@@ -138,7 +138,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Create Action Button */}
             <button
               id="navbar-create-button"
-              onClick={onOpenCreateSheet}
+              onClick={e => onOpenCreateSheet(e.currentTarget.getBoundingClientRect())}
+              aria-expanded={!!isCreatePanelOpen}
+              aria-label="Crear"
               className={`p-2 rounded-full border transition-all ${
                 isCreatePanelOpen
                   ? 'bg-stone-900 text-white border-stone-900 shadow-xs ring-2 ring-stone-900/20'

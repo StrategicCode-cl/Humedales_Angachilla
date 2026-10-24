@@ -233,8 +233,12 @@ ecosistemaRouter.put("/estaciones/:id", async (req, res) => {
   if (!(await requireAdmin(req, res))) return;
   const id = String(req.params.id);
   const b = req.body ?? {};
-  const lat = Number(b.coordinates?.[0] ?? b.lat ?? -39.85695);
-  const lng = Number(b.coordinates?.[1] ?? b.lng ?? -73.23698);
+  // Sin coordenadas en el cuerpo se conserva la ubicación actual (antes caía en un punto por defecto)
+  const latIn = Number(b.coordinates?.[0] ?? b.lat);
+  const lngIn = Number(b.coordinates?.[1] ?? b.lng);
+  const hasCoords = Number.isFinite(latIn) && Number.isFinite(lngIn);
+  const lat = hasCoords ? latIn : null;
+  const lng = hasCoords ? lngIn : null;
 
   let imagenPrincipalId = null;
   if (b.image && String(b.image).startsWith("data:image/")) {
@@ -259,9 +263,10 @@ ecosistemaRouter.put("/estaciones/:id", async (req, res) => {
       codigo_qr = COALESCE($6, codigo_qr),
       sound_key = $7,
       sendero_id = COALESCE((SELECT id FROM sendero WHERE slug = $8), sendero_id),
-      ubicacion = ST_SetSRID(ST_MakePoint($10, $9), 4326),
-      lat = $9,
-      lng = $10,
+      ubicacion = CASE WHEN $9::float8 IS NULL THEN ubicacion ELSE ST_SetSRID(ST_MakePoint($10::float8, $9::float8), 4326) END,
+      ubicacion_editada = ubicacion_editada OR ($9::float8 IS NOT NULL AND (lat <> $9::float8 OR lng <> $10::float8)),
+      lat = COALESCE($9::float8, lat),
+      lng = COALESCE($10::float8, lng),
       imagen_principal_id = COALESCE($11, imagen_principal_id)
     WHERE id = $1`,
     [
